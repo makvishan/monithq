@@ -1,0 +1,387 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum UserRole {
+  USER
+  ORG_ADMIN
+  SUPER_ADMIN
+}
+
+enum SiteStatus {
+  ONLINE
+  OFFLINE
+  DEGRADED
+  MAINTENANCE
+}
+
+enum IncidentStatus {
+  INVESTIGATING
+  IDENTIFIED
+  MONITORING
+  RESOLVED
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum SubscriptionPlan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+}
+
+// Models
+model AppSettings {
+  id                  String   @id @default("app_settings") // Single row
+  notifyOnManualCheck Boolean  @default(false) // Send email on manual checks (Application-wide)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  logo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Alert Settings (Organization-level)
+  alertThreshold           Int     @default(2)     // Consecutive failures before incident
+  alertCooldownMinutes     Int     @default(15)    // Minutes between repeat alerts
+  maintenanceMode          Boolean @default(false) // Pause all alerts
+
+  // Relationships
+  users         User[]
+  sites         Site[]
+  subscription  Subscription?
+  invitations   Invitation[]
+  apiKeys       ApiKey[]
+  webhooks      Webhook[]
+  statusPage    StatusPage?
+
+  @@index([createdAt])
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String   // Hashed with bcrypt
+  name          String
+  role          UserRole @default(USER)
+  avatar        String?
+  emailVerified Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastLoginAt   DateTime?
+
+  // Notification Preferences - Event Types
+  notifyOnIncident      Boolean @default(true)  // Receive incident alerts
+  notifyOnResolution    Boolean @default(true)  // Receive resolution alerts
+  notifyOnDegradation   Boolean @default(true)  // Receive degradation alerts
+  notifyOnlyAdmins      Boolean @default(false) // Only notify if user is admin
+  
+  // Notification Preferences - Channels
+  notifyViaEmail        Boolean @default(true)  // Send notifications via email
+  notifyViaSlack        Boolean @default(false) // Send notifications via Slack
+  notifyViaSms          Boolean @default(false) // Send notifications via SMS
+  notifyViaWebhook      Boolean @default(false) // Send notifications via Webhook
+  slackWebhookUrl       String? // Slack webhook URL
+  smsPhoneNumber        String? // Phone number for SMS notifications
+  customWebhookUrl      String? // Custom webhook URL for notifications
+  
+  // Foreign Keys
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Relationships
+  sites         Site[]
+  incidents     Incident[]
+  notifications Notification[]
+  sessions      Session[]
+  apiKeys       ApiKey[]
+  webhooks      Webhook[]
+  siteSubscriptions SiteSubscription[]
+
+  @@index([email])
+  @@index([organizationId])
+  @@index([role])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Site {
+  id              String     @id @default(cuid())
+  name            String
+  url             String
+  status          SiteStatus @default(ONLINE)
+  uptime          Float      @default(100.0) // Percentage
+  checkInterval   Int        @default(300) // Seconds (5 minutes default)
+  averageLatency  Int        @default(0) // Milliseconds
+  lastCheckedAt   DateTime?
+  region          String?
+  enabled         Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Foreign Keys
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      User         @relation(fields: [createdById], references: [id])
+
+  // Relationships
+  incidents      Incident[]
+  checks         SiteCheck[]
+  notifications  Notification[]
+  subscribers    SiteSubscription[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([createdById])
+}
+
+model SiteCheck {
+  id             String   @id @default(cuid())
+  siteId         String
+  status         SiteStatus
+  responseTime   Int      // Milliseconds
+  statusCode     Int?
+  errorMessage   String?
+  checkedAt      DateTime @default(now())
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId])
+  @@index([checkedAt])
+}
+
+model Incident {
+  id        String           @id @default(cuid())
+  siteId    String
+  status    IncidentStatus   @default(INVESTIGATING)
+  severity  IncidentSeverity @default(MEDIUM)
+  startTime DateTime         @default(now())
+  endTime   DateTime?
+  duration  Int?             // Milliseconds
+  aiSummary String?          @db.Text
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  // Foreign Keys
+  site          Site   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  resolvedById  String?
+  resolvedBy    User?  @relation(fields: [resolvedById], references: [id])
+
+  @@index([siteId])
+  @@index([status])
+  @@index([severity])
+  @@index([startTime])
+}
+
+model Subscription {
+  id                String             @id @default(cuid())
+  plan              SubscriptionPlan   @default(FREE)
+  status            SubscriptionStatus @default(ACTIVE)
+  currentPeriodEnd  DateTime
+  cancelAtPeriodEnd Boolean            @default(false)
+  stripeCustomerId  String?            @unique
+  stripeSubscriptionId String?         @unique
+  amount            Int                @default(0) // Amount in cents
+  currency          String             @default("USD")
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  // Foreign Key - One subscription per organization
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([plan])
+}
+
+model Invitation {
+  id        String   @id @default(cuid())
+  email     String
+  role      UserRole @default(USER)
+  token     String   @unique
+  expiresAt DateTime
+  accepted  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Foreign Key
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([token])
+  @@index([organizationId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String   // email, sms, slack, webhook
+  title     String
+  message   String   @db.Text
+  read      Boolean  @default(false)
+  sentAt    DateTime @default(now())
+
+  // Foreign Keys
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  siteId String?
+  site   Site?  @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@index([sentAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // create, update, delete, login, logout
+  entity    String   // user, site, organization, etc.
+  entityId  String
+  userId    String?
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([action])
+  @@index([entity])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model ApiKey {
+  id             String   @id @default(cuid())
+  name           String
+  key            String   @unique
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      User     @relation(fields: [createdById], references: [id])
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([key])
+  @@index([organizationId])
+  @@index([createdById])
+  @@index([isActive])
+}
+
+model Webhook {
+  id             String   @id @default(cuid())
+  name           String
+  url            String
+  events         String[] // Array of event types: incident_created, incident_resolved, site_down, site_up
+  isActive       Boolean  @default(true)
+  secret         String?  // Optional webhook secret for signature verification
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      User     @relation(fields: [createdById], references: [id])
+  lastTriggeredAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([createdById])
+  @@index([isActive])
+}
+
+model StatusPage {
+  id             String   @id @default(cuid())
+  slug           String   @unique // Custom URL slug for the status page
+  title          String
+  description    String?
+  logoUrl        String?
+  isPublic       Boolean  @default(true)
+  customDomain   String?  // Optional custom domain
+  showUptime     Boolean  @default(true)
+  showIncidents  Boolean  @default(true)
+  organizationId String   @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([slug])
+  @@index([isPublic])
+}
+
+model SiteSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  siteId    String
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, siteId])
+  @@index([userId])
+  @@index([siteId])
+}
+
+model Plan {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  displayName       String
+  description       String?
+  price             Int      // Price in cents
+  stripePriceId     String?
+  isActive          Boolean  @default(true)
+  isPopular         Boolean  @default(false)
+  sortOrder         Int      @default(0)
+  
+  // Limits
+  maxSites          Int      @default(-1) // -1 = unlimited
+  maxTeamMembers    Int      @default(-1) // -1 = unlimited
+  minCheckInterval  Int      @default(300) // Seconds
+  maxAICredits      Int      @default(0)
+  allowedChannels   String[] @default(["email"]) // Notification channels: email, slack, sms, webhook
+  
+  // Features (JSON array)
+  features          Json     @default("[]")
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+}

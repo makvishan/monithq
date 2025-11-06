@@ -1,0 +1,3 @@
+Super Admin: admin@monithq.com / password123
+Org Admin: admin@acme.com / password123
+User: user@acme.com / password123
