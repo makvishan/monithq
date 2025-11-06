@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Crown, 
@@ -20,6 +20,14 @@ import MainContent from '@/components/MainContent';
 
 export default function BillingPage() {
   const router = useRouter();
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <BillingPageContent router={router} />
+    </Suspense>
+  );
+}
+
+function BillingPageContent({ router }) {
   const searchParams = useSearchParams();
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -51,10 +59,57 @@ export default function BillingPage() {
   };
 
   useEffect(() => {
+    const mockSubscription = {
+      plan: 'STARTER',
+      status: 'ACTIVE',
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      usage: {
+        sites: 3,
+        aiCredits: 750,
+      },
+      paymentMethod: {
+        brand: 'Visa',
+        last4: '4242',
+        expiryMonth: 12,
+        expiryYear: 2025,
+      },
+      billingHistory: [
+        { id: 1, date: '2024-12-01', description: 'Starter Plan - Monthly', amount: 2900, status: 'paid' },
+        { id: 2, date: '2024-11-01', description: 'Starter Plan - Monthly', amount: 2900, status: 'paid' },
+        { id: 3, date: '2024-10-01', description: 'Starter Plan - Monthly', amount: 2900, status: 'paid' },
+      ],
+    };
     if (searchParams.get('success') === 'true') {
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 5000);
     }
+    const fetchPlans = async () => {
+      try {
+        const response = await fetch('/api/plans?active=true');
+        if (response.ok) {
+          const data = await response.json();
+          setPlans(data.plans || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch plans:', error);
+      }
+    };
+    const fetchSubscription = async () => {
+      try {
+        const response = await fetch('/api/user/subscription');
+        if (response.ok) {
+          const data = await response.json();
+          setSubscription(data.subscription || mockSubscription);
+        } else {
+          setSubscription(mockSubscription);
+        }
+      } catch (error) {
+        console.error('Failed to fetch subscription:', error);
+        setSubscription(mockSubscription);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchPlans();
     fetchSubscription();
   }, [searchParams]);
@@ -230,7 +285,7 @@ export default function BillingPage() {
                     day: 'numeric' 
                   })}
                 </span>
-                . You'll still have access to all features until then. You can reactivate anytime from the Manage Subscription portal.
+                . You&apos;ll still have access to all features until then. You can reactivate anytime from the Manage Subscription portal.
               </div>
             </div>
           </div>

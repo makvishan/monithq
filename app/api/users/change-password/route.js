@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuth, createAuditLog } from '@/lib/api-middleware';
-import { hashPassword, verifyPassword } from '@/lib/crypto';
+import { hashPassword, comparePassword } from '@/lib/crypto';
 
 // POST /api/users/change-password - Change user password
 export async function POST(request) {

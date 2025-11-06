@@ -4,12 +4,22 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { Card } from '@/components/Card';
 import { Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
 import { login, getDefaultRedirect, isAuthenticated } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
+  // Wrap useSearchParams in Suspense
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginPageContent router={router} />
+    </Suspense>
+  );
+}
+
+function LoginPageContent({ router }) {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,25 +37,20 @@ export default function LoginPage() {
         router.replace(redirect);
       }
     };
-    
     checkAuth();
-  }, []); // Empty dependency array - only run once on mount
+  }, [router, searchParams]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    
     try {
       // Login via API
       const data = await login(email, password);
-      
       if (data && data.user) {
         setIsRedirecting(true);
-        
         // Get redirect URL or default based on role
         const redirect = searchParams.get('redirect') || getDefaultRedirect(data.user.role);
-        
         // Use replace instead of push to prevent back button issues
         // Add a small delay to ensure state is fully updated
         setTimeout(() => {
@@ -74,7 +79,6 @@ export default function LoginPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-      
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -88,14 +92,12 @@ export default function LoginPage() {
           </div>
           <span className="text-2xl font-bold gradient-text">MonitHQ</span>
         </Link>
-
         <Card>
           <div className="p-8">
             <div className="text-center mb-8">
               <h1 className="text-2xl font-bold text-foreground mb-2">Welcome back</h1>
               <p className="text-muted-foreground">Sign in to your account</p>
             </div>
-
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2">
@@ -103,7 +105,6 @@ export default function LoginPage() {
                   <p className="text-sm text-red-500">{error}</p>
                 </div>
               )}
-
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Email Address
@@ -121,7 +122,6 @@ export default function LoginPage() {
                   />
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Password
@@ -139,7 +139,6 @@ export default function LoginPage() {
                   />
                 </div>
               </div>
-
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-2">
                   <input type="checkbox" className="w-4 h-4 rounded border-border text-primary focus:ring-primary" />
@@ -149,7 +148,6 @@ export default function LoginPage() {
                   Forgot password?
                 </Link>
               </div>
-
               <button
                 type="submit"
                 disabled={isLoading}
@@ -168,17 +166,15 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
-
             {/* Sign Up Link */}
             <p className="mt-6 text-center text-sm text-muted-foreground">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link href="/auth/register" className="text-primary font-medium hover:underline">
                 Sign up for free
               </Link>
             </p>
           </div>
         </Card>
-
         {/* Footer */}
         <p className="mt-8 text-center text-xs text-muted-foreground">
           By signing in, you agree to our{' '}
