@@ -16,14 +16,35 @@ export default function RegisterPage() {
     confirmPassword: '',
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
       showToast.warning('Passwords do not match!');
       return;
     }
-    showToast.success('Registration successful! Redirecting to dashboard...');
-    window.location.href = '/dashboard';
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          organizationName: formData.organization,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast.success('Registration successful! Redirecting to dashboard...');
+        window.location.href = '/dashboard';
+      } else {
+        showToast.error(data.error || 'Registration failed.');
+      }
+    } catch (err) {
+      showToast.error('Registration failed. Please try again.');
+    }
   };
 
   const handleChange = (e) => {
