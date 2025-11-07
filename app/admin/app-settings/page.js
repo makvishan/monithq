@@ -26,27 +26,9 @@ export default function AppSettingsPage() {
 
   const checkAuthAndLoadSettings = async () => {
     try {
-      // Check if user is logged in and is Super Admin
-      const currentUser = localStorage.getItem('currentUser');
-      if (!currentUser) {
-        router.push('/login');
-        return;
-      }
-
-      const user = JSON.parse(currentUser);
-      setUserData(user);
-
-      // Check if user is Super Admin
-      if (user.role !== 'SUPER_ADMIN') {
-        router.push('/dashboard');
-        return;
-      }
-
       // Load app settings
       const response = await fetch('/api/app-settings', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
+        credentials: 'include',k
       });
 
       if (response.ok) {
@@ -73,8 +55,8 @@ export default function AppSettingsPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
+        credentials: 'include',
         body: JSON.stringify(appSettings),
       });
 

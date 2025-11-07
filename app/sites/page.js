@@ -58,9 +58,7 @@ export default function SitesPage() {
       }
       
       const response = await fetch(`/api/sites?${params.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
+        credentials: 'include',
       });
       
       const data = await response.json();

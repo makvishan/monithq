@@ -1,95 +1,116 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from "react";
 import { useAuth } from '@/contexts/AuthContext';
-import { motion } from 'framer-motion';
-import Link from 'next/link';
-import { Card } from '@/components/Card';
-import { Mail, Lock, User, Building, ArrowRight } from 'lucide-react';
-import showToast from '@/lib/toast';
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Card } from "@/components/Card";
+import showToast from "@/lib/toast";
+import { Mail, Lock, User, ArrowRight } from "lucide-react";
 
-
-export default function RegisterPage() {
+export default function InviteRegisterPage() {
   const router = useRouter();
   const { refreshUser } = useAuth();
-  
+  const searchParams = useSearchParams();
+  const inviteToken = searchParams.get("invite") || "";
+  const emailParam = searchParams.get("email") || "";
+
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    organization: '',
-    password: '',
-    confirmPassword: '',
+    name: "",
+    email: emailParam,
+    password: "",
+    confirmPassword: "",
   });
+  const [loading, setLoading] = useState(true);
+  const [inviteValid, setInviteValid] = useState(false);
+  const [orgName, setOrgName] = useState("");
+
+  useEffect(() => {
+    async function verifyInvite() {
+      if (!inviteToken) {
+        showToast.error("Invalid invite link.");
+        router.replace("/auth/login");
+        return;
+      }
+      // Call API to verify token and get org info
+      const res = await fetch(`/api/invite/verify?token=${inviteToken}`);
+      const data = await res.json();
+      if (res.ok && data.organizationName) {
+        setOrgName(data.organizationName);
+        setInviteValid(true);
+      } else {
+        showToast.error(data.error || "Invalid or expired invite.");
+        router.replace("/auth/login");
+      }
+      setLoading(false);
+    }
+    verifyInvite();
+  }, [inviteToken, router]);
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
-      showToast.warning('Passwords do not match!');
+      showToast.warning("Passwords do not match!");
       return;
     }
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          organizationName: formData.organization,
+          inviteToken,
         }),
       });
       const data = await res.json();
       if (res.ok) {
         // Refresh user context after registration
         await refreshUser();
-        showToast.success('Registration successful! Redirecting to dashboard...');
-        router.replace('/dashboard');
+        showToast.success("Registration successful! Redirecting to dashboard...");
+        router.replace("/dashboard");
       } else {
-        showToast.error(data.error || 'Registration failed.');
+        showToast.error(data.error || "Registration failed.");
       }
-    } catch (err) {
-      showToast.error('Registration failed. Please try again.');
+    } catch {
+      showToast.error("Registration failed. Please try again.");
     }
   };
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+  if (!inviteValid) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-      
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md relative z-10"
-      >
+
+      <div className="w-full max-w-md relative z-10">
         {/* Logo */}
-        <Link href="/" className="flex items-center justify-center space-x-2 mb-8">
+        <a href="/" className="flex items-center justify-center space-x-2 mb-8">
           <div className="w-10 h-10 gradient-ai rounded-lg flex items-center justify-center glow-ai">
             <span className="text-white font-bold text-xl">M</span>
           </div>
           <span className="text-2xl font-bold gradient-text">MonitHQ</span>
-        </Link>
+        </a>
 
         <Card>
           <div className="p-8">
             <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold text-foreground mb-2">Create your account</h1>
-              <p className="text-muted-foreground">Start monitoring your websites today</p>
+              <h1 className="text-2xl font-bold text-foreground mb-2">Accept Invitation</h1>
+              <p className="text-muted-foreground">Join <strong>{orgName}</strong> on MonitHQ</p>
             </div>
-
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Full Name
-                </label>
+                <label className="block text-sm font-medium text-foreground mb-2">Full Name</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <input
@@ -103,47 +124,22 @@ export default function RegisterPage() {
                   />
                 </div>
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Email Address
-                </label>
+                <label className="block text-sm font-medium text-foreground mb-2">Email Address</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="you@example.com"
+                    disabled
+                    className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary opacity-70 cursor-not-allowed"
                     required
                   />
                 </div>
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Organization Name
-                </label>
-                <div className="relative">
-                  <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <input
-                    type="text"
-                    name="organization"
-                    value={formData.organization}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Acme Inc."
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Password
-                </label>
+                <label className="block text-sm font-medium text-foreground mb-2">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <input
@@ -157,11 +153,8 @@ export default function RegisterPage() {
                   />
                 </div>
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Confirm Password
-                </label>
+                <label className="block text-sm font-medium text-foreground mb-2">Confirm Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <input
@@ -175,36 +168,32 @@ export default function RegisterPage() {
                   />
                 </div>
               </div>
-
               <label className="flex items-start gap-2">
                 <input type="checkbox" className="w-4 h-4 mt-1 rounded border-border text-primary focus:ring-primary" required />
                 <span className="text-sm text-muted-foreground">
                   I agree to the{' '}
-                  <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link>
+                  <a href="/terms" className="text-primary hover:underline">Terms of Service</a>
                   {' '}and{' '}
-                  <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
+                  <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>
                 </span>
               </label>
-
               <button
                 type="submit"
                 className="w-full px-4 py-3 gradient-ai text-white rounded-lg font-semibold hover:opacity-90 transition-all glow-ai inline-flex items-center justify-center gap-2"
               >
-                Create Account
+                Accept Invitation
                 <ArrowRight className="w-5 h-5" />
               </button>
             </form>
-
             {/* Login Link */}
             <p className="mt-6 text-center text-sm text-muted-foreground">
               Already have an account?{' '}
-              <Link href="/auth/login" className="text-primary font-medium hover:underline">
+              <a href="/auth/login" className="text-primary font-medium hover:underline">
                 Sign in
-              </Link>
+              </a>
             </p>
           </div>
         </Card>
-
         {/* Trust Badge */}
         <div className="mt-8 text-center">
           <p className="text-sm text-muted-foreground mb-3">Trusted by teams at</p>
@@ -214,7 +203,7 @@ export default function RegisterPage() {
             <div className="text-xs font-semibold">STARTUP</div>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

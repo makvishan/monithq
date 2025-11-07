@@ -87,14 +87,7 @@ export async function POST(request) {
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: [
-        'card',           // Credit/Debit cards
-        'upi',            // UPI (India) - Google Pay, PhonePe, BHIM, etc.
-        'alipay',         // Alipay (China) - QR code
-        'wechat_pay',     // WeChat Pay (China) - QR code
-        'paynow',         // PayNow (Singapore) - QR code
-        'promptpay',      // PromptPay (Thailand) - QR code
-        'grabpay',        // GrabPay (Southeast Asia)
-        'cashapp',        // Cash App (US)
+        'card',
       ],
       line_items: [
         {

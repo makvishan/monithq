@@ -6,8 +6,8 @@ import { USER_ROLES } from '@/lib/constants';
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const { email, password, name, organizationName } = body;
+  const body = await request.json();
+  const { email, password, name, organizationName, inviteToken } = body;
 
     // Validation
     if (!email || !password || !name) {
@@ -36,41 +36,69 @@ export async function POST(request) {
       );
     }
 
-    // Hash password
     const hashedPassword = await hashPassword(password);
 
-    // Create organization and user in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Create organization
-      const organization = await tx.organization.create({
-        data: {
-          name: organizationName || `${name}'s Organization`,
-        },
+    let result;
+    if (inviteToken) {
+      // Accepting an invite: find valid invitation
+      const invitation = await prisma.invitation.findUnique({
+        where: { token: inviteToken },
+        include: { organization: true },
       });
-
-      // Create user as ORG_ADMIN (first user in organization)
-      const user = await tx.user.create({
-        data: {
-          email,
-          password: hashedPassword,
-          name,
-          role: USER_ROLES.ORG_ADMIN, // First user is always org admin
-          organizationId: organization.id,
-        },
+      if (!invitation || invitation.accepted || invitation.expiresAt < new Date()) {
+        return NextResponse.json({ error: 'Invalid or expired invitation.' }, { status: 400 });
+      }
+      // Create user in invited organization with invited role
+      result = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            email,
+            password: hashedPassword,
+            name,
+            role: USER_ROLES.USER,
+            organizationId: invitation.organizationId,
+            emailVerified: true,
+          },
+        });
+        // Mark invitation as accepted
+        await tx.invitation.update({
+          where: { token: inviteToken },
+          data: { accepted: true },
+        });
+        return { user, organization: invitation.organization };
       });
+    } else {
+      // Normal registration: create new org and user as ORG_ADMIN
+      result = await prisma.$transaction(async (tx) => {
+        const organization = await tx.organization.create({
+          data: {
+            name: organizationName || `${name}'s Organization`,
+          },
+        });
 
-      // Create free subscription for the organization
-      await tx.subscription.create({
-        data: {
-          organizationId: organization.id,
-          plan: 'FREE',
-          status: 'ACTIVE',
-          currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
-        },
+        const user = await tx.user.create({
+          data: {
+            email,
+            password: hashedPassword,
+            name,
+            role: USER_ROLES.ORG_ADMIN,
+            organizationId: organization.id,
+            emailVerified: false,
+          },
+        });
+        // Create free subscription for the organization
+        await tx.subscription.create({
+          data: {
+            organizationId: organization.id,
+            plan: 'FREE',
+            status: 'ACTIVE',
+            currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+          },
+        });
+
+        return { user, organization };
       });
-
-      return { user, organization };
-    });
+    }
 
     // Generate JWT token
     const token = generateToken({ userId: result.user.id });

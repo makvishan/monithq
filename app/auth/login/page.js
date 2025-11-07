@@ -7,7 +7,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { Card } from '@/components/Card';
 import { Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
-import { login, getDefaultRedirect, isAuthenticated } from '@/lib/auth';
+import { login, getDefaultRedirect } from '@/lib/auth';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export default function LoginPage() {
 }
 
 function LoginPageContent({ router }) {
+  const { refreshUser, user } = useAuth();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,15 +32,13 @@ function LoginPageContent({ router }) {
   // Check if already logged in
   useEffect(() => {
     // Only check once on mount
-    const checkAuth = async () => {
-      if (isAuthenticated()) {
-        setIsRedirecting(true);
-        const redirect = searchParams.get('redirect') || '/dashboard';
-        router.replace(redirect);
-      }
-    };
-    checkAuth();
-  }, [router, searchParams]);
+    if (user) {
+      const redirect = searchParams.get('redirect') || getDefaultRedirect(user.role);
+      router.replace(redirect);
+    }
+    // Optionally, you can refresh user on mount if needed:
+    // refreshUser();
+  }, [router, searchParams, user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -48,11 +48,12 @@ function LoginPageContent({ router }) {
       // Login via API
       const data = await login(email, password);
       if (data && data.user) {
+        // Refresh user context after login
+        await refreshUser();
         setIsRedirecting(true);
         // Get redirect URL or default based on role
         const redirect = searchParams.get('redirect') || getDefaultRedirect(data.user.role);
         // Use replace instead of push to prevent back button issues
-        // Add a small delay to ensure state is fully updated
         setTimeout(() => {
           router.replace(redirect);
         }, 100);

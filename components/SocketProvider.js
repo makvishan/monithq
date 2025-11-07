@@ -19,25 +19,12 @@ export const SocketProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [organizationId, setOrganizationId] = useState(null);
 
+  const { user } = require('@/contexts/AuthContext').useAuth();
   useEffect(() => {
-    // Get user's organization ID from localStorage or API
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    // Fetch user info to get organization ID
-    fetch('/api/auth/me', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.user?.organizationId) {
-          setOrganizationId(data.user.organizationId);
-        }
-      })
-      .catch(console.error);
-  }, []);
+    if (user?.organizationId) {
+      setOrganizationId(user.organizationId);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!organizationId) return;

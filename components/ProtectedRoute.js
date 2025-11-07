@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { isAuthenticated, canAccessRoute, getCurrentUser, getDefaultRedirect } from '@/lib/auth';
+import { canAccessRoute, getDefaultRedirect } from '@/lib/auth';
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * Higher-Order Component for route protection
@@ -11,40 +12,23 @@ import { isAuthenticated, canAccessRoute, getCurrentUser, getDefaultRedirect } f
 export default function ProtectedRoute({ children, allowedRoles = [] }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isChecking, setIsChecking] = useState(true);
-  const [hasAccess, setHasAccess] = useState(false);
-
+  const { user, loading } = useAuth();
   useEffect(() => {
-    const checkAccess = () => {
-      const authenticated = isAuthenticated();
-      const user = getCurrentUser();
-
-      // If not authenticated, redirect to login
-      if (!authenticated) {
-        router.replace(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
+    if (!loading) {
+      if (!user) {
+        router.replace(`/auth/login`);
         return;
       }
-
-      // Check if user has permission to access this route
-      const canAccess = canAccessRoute(pathname, user?.role);
-
+      const canAccess = canAccessRoute(pathname, user.role);
       if (!canAccess) {
-        // Redirect to appropriate page based on role
-        const defaultPath = getDefaultRedirect(user?.role);
+        const defaultPath = getDefaultRedirect(user.role);
         router.replace(defaultPath);
         return;
       }
+    }
+  }, [user, loading, pathname, router]);
 
-      // User is authenticated and has access
-      setHasAccess(true);
-      setIsChecking(false);
-    };
-
-    checkAccess();
-  }, [pathname, router]);
-
-  // Show loading state while checking access
-  if (isChecking || !hasAccess) {
+  if (loading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">

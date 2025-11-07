@@ -108,7 +108,15 @@ export default function TeamManagementPage() {
   };
 
   const handleResendInvite = (member) => {
-    showToast.info(`Invitation resent to ${member.email}`);
+    const resendInvite = async () => {
+      try {
+        await organizationsAPI.inviteMember(member.email, member.role);
+        showToast.success(`Invitation resent to ${member.email}`);
+      } catch (err) {
+        showToast.error(err.message || `Failed to resend invitation to ${member.email}`);
+      }
+    };
+    resendInvite();
   };
 
   const formatDate = (dateString) => {

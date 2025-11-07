@@ -2,6 +2,7 @@ import { Outfit, Fira_Code } from "next/font/google";
 import "./globals.css";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import { SocketProvider } from "@/components/SocketProvider";
+import { AuthProvider } from "@/contexts/AuthContext";
 import NotificationToast from "@/components/NotificationToast";
 import { Toaster } from "react-hot-toast";
 
@@ -33,13 +34,15 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${outfit.variable} ${firaCode.variable}`}>
       <body className="antialiased">
-        <SidebarProvider>
-          <SocketProvider>
-            {children}
-            <NotificationToast />
-            <Toaster />
-          </SocketProvider>
-        </SidebarProvider>
+        <AuthProvider>
+          <SidebarProvider>
+            <SocketProvider>
+              {children}
+              <NotificationToast />
+              <Toaster />
+            </SocketProvider>
+          </SidebarProvider>
+        </AuthProvider>
       </body>
     </html>
   );

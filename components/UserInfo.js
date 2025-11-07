@@ -3,19 +3,14 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut, User } from 'lucide-react';
-import { getCurrentUser, logout } from '@/lib/auth';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function UserInfo() {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState(null);
+  const { user: currentUser, logout } = useAuth();
 
-  useEffect(() => {
-    const user = getCurrentUser();
-    setCurrentUser(user);
-  }, []);
-
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     router.push('/auth/login');
   };
 

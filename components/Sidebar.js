@@ -7,24 +7,15 @@ import * as LucideIcons from 'lucide-react';
 import { SIDEBAR_LINKS, ORG_ADMIN_SIDEBAR_LINKS, ADMIN_SIDEBAR_LINKS, USER_ROLES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
-import { logout } from '@/lib/auth';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { isCollapsed, toggleSidebar } = useSidebar();
   
-  // Get user from localStorage
-  const [currentUser, setCurrentUser] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  
-  useEffect(() => {
-    const user = localStorage.getItem('currentUser');
-    if (user) {
-      setCurrentUser(JSON.parse(user));
-    }
-  }, []);
-  
+  const { user: currentUser, logout } = useAuth();
   const userRole = currentUser?.role || USER_ROLES.USER;
   
   const isSuperAdmin = userRole === USER_ROLES.SUPER_ADMIN;

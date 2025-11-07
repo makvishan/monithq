@@ -26,17 +26,13 @@ export async function POST(request) {
       );
     }
 
-    // Check if user already exists in organization
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        email,
-        organizationId: user.organizationId,
-      },
+    // Check if user already exists globally
+    const alreadyRegistered = await prisma.user.findUnique({
+      where: { email },
     });
-
-    if (existingUser) {
+    if (alreadyRegistered) {
       return NextResponse.json(
-        { error: 'User already exists in this organization' },
+        { error: 'User with this email is already registered' },
         { status: 400 }
       );
     }
@@ -107,6 +103,7 @@ export async function POST(request) {
         inviterName: user.name || user.email,
         organizationName: invitation.organization.name,
         role: invitation.role,
+        token: invitation.token,
       });
     } catch (emailError) {
       console.error('Failed to send invitation email:', emailError);

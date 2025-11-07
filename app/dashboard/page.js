@@ -7,9 +7,8 @@ import MainContent from '@/components/MainContent';
 import SiteStatusCard from '@/components/SiteStatusCard';
 import ChartCard from '@/components/ChartCard';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/Card';
-import { sitesAPI, incidentsAPI } from '@/lib/api';
 import { formatDuration, formatDateTime, getStatusBadge } from '@/lib/utils';
-import { Plus, TrendingUp, TrendingDown, Activity, Globe, AlertTriangle, Clock, Loader2, AlertCircle } from 'lucide-react';
+import { TrendingUp, Activity, Globe, AlertTriangle, Loader2, AlertCircle } from 'lucide-react';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState(null);
@@ -29,24 +28,16 @@ export default function DashboardPage() {
       setError(null);
       const [statsData, sitesData, incidentsData, chartsData] = await Promise.all([
         fetch('/api/dashboard/stats?timeRange=24h', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
+          credentials: 'include',
         }).then(res => res.json()),
         fetch('/api/dashboard/sites?limit=4', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
+          credentials: 'include',
         }).then(res => res.json()),
         fetch('/api/dashboard/incidents?limit=5&status=INVESTIGATING', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
+          credentials: 'include',
         }).then(res => res.json()),
         fetch('/api/dashboard/charts?days=7', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
+          credentials: 'include',
         }).then(res => res.json()),
       ]);
       setStats(statsData.stats || {});

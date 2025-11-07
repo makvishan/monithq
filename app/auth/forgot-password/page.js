@@ -10,9 +10,29 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const handleSubmit = (e) => {
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitted(true);
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setIsSubmitted(true);
+      } else {
+        setError(data.error || "Failed to send reset link.");
+      }
+    } catch {
+      setError("Failed to send reset link. Please try again.");
+    }
+    setLoading(false);
   };
 
   return (
@@ -63,11 +83,13 @@ export default function ForgotPasswordPage() {
                     </div>
                   </div>
 
+                  {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
                   <button
                     type="submit"
                     className="w-full px-4 py-3 gradient-ai text-white rounded-lg font-semibold hover:opacity-90 transition-all glow-ai"
+                    disabled={loading}
                   >
-                    Send Reset Link
+                    {loading ? "Sending..." : "Send Reset Link"}
                   </button>
                 </form>
 

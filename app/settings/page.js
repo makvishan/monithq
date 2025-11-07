@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '@/components/Sidebar';
 import MainContent from '@/components/MainContent';
@@ -20,11 +21,21 @@ export default function SettingsPage() {
   const [subscription, setSubscription] = useState(null);
   const [planLimits, setPlanLimits] = useState(null);
   
-  const [userData, setUserData] = useState(null);
+  const { user: userData } = useAuth();
   const [profileData, setProfileData] = useState({
     name: '',
     email: '',
   });
+
+  // Pre-fill profileData when userData loads
+  useEffect(() => {
+    if (userData) {
+      setProfileData({
+        name: userData.name || '',
+        email: userData.email || '',
+      });
+    }
+  }, [userData]);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -54,21 +65,9 @@ export default function SettingsPage() {
 
   const loadUserSettings = async () => {
     try {
-      const currentUser = localStorage.getItem('currentUser');
-      if (currentUser) {
-        const user = JSON.parse(currentUser);
-        setUserData(user);
-        setProfileData({
-          name: user.name || '',
-          email: user.email || '',
-        });
-      }
-      
       // Fetch user settings
       const response = await fetch('/api/users/settings', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -95,9 +94,7 @@ export default function SettingsPage() {
 
       // Fetch subscription to determine allowed channels
       const subResponse = await fetch('/api/user/subscription', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
+        credentials: 'include',
       });
 
       if (subResponse.ok) {
@@ -110,13 +107,10 @@ export default function SettingsPage() {
       }
       
       // Load organization alert settings (for ORG_ADMIN and SUPER_ADMIN)
-      if (user.role === 'ORG_ADMIN' || user.role === 'SUPER_ADMIN') {
+      if (userData?.role === 'ORG_ADMIN' || userData?.role === 'SUPER_ADMIN') {
         const orgResponse = await fetch('/api/organization/settings', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
+          credentials: 'include',
         });
-        
         if (orgResponse.ok) {
           const orgData = await orgResponse.json();
           setAlertSettings({
@@ -126,15 +120,11 @@ export default function SettingsPage() {
           });
         }
       }
-      
       // Load app settings (for SUPER_ADMIN only)
-      if (user.role === 'SUPER_ADMIN') {
+      if (userData?.role === 'SUPER_ADMIN') {
         const appResponse = await fetch('/api/app-settings', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
+          credentials: 'include',
         });
-        
         if (appResponse.ok) {
           const appData = await appResponse.json();
           setAppSettings({
@@ -158,8 +148,8 @@ export default function SettingsPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
+        credentials: 'include',
         body: JSON.stringify(profileData),
       });
 
@@ -169,10 +159,8 @@ export default function SettingsPage() {
         throw new Error(data.error || 'Failed to update profile');
       }
 
-      // Update localStorage
-      const updatedUser = { ...userData, ...profileData };
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-      setUserData(updatedUser);
+  // Update userData state only
+  // If you want to update context, call refreshUser from useAuth
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -204,8 +192,8 @@ export default function SettingsPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
+        credentials: 'include',
         body: JSON.stringify({
           currentPassword: passwordData.currentPassword,
           newPassword: passwordData.newPassword,
@@ -242,8 +230,8 @@ export default function SettingsPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
+        credentials: 'include',
         body: JSON.stringify(alertSettings),
       });
 
@@ -271,8 +259,8 @@ export default function SettingsPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
+        credentials: 'include',
         body: JSON.stringify(appSettings),
       });
 
@@ -318,8 +306,8 @@ export default function SettingsPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
+        credentials: 'include',
         body: JSON.stringify(updateData),
       });
 
@@ -329,14 +317,11 @@ export default function SettingsPage() {
         throw new Error(data.error || 'Failed to update settings');
       }
 
-      // Update localStorage
-      const updatedUser = { ...userData, name: profileData.name };
-      // Only update email in localStorage if admin changed it
-      if (userData?.role !== 'USER') {
-        updatedUser.email = profileData.email;
-      }
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-      setUserData(updatedUser);
+      // Update local profileData state only (user info is managed by AuthContext)
+      setProfileData({
+        name: profileData.name,
+        email: profileData.email,
+      });
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -384,7 +369,6 @@ export default function SettingsPage() {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar />
-      
       <MainContent>
         {/* Header */}
         <div className="flex items-center justify-between mb-8">

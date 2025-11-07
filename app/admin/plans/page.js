@@ -39,11 +39,8 @@ export default function AdminPlansPage() {
   const fetchPlans = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
       const response = await fetch('/api/admin/plans', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -61,20 +58,16 @@ export default function AdminPlansPage() {
     try {
       setSaving(true);
       setError(null);
-      const token = localStorage.getItem('token');
-      
       const url = planData.id 
         ? `/api/admin/plans/${planData.id}`
         : '/api/admin/plans';
-      
       const method = planData.id ? 'PUT' : 'POST';
-
       const response = await fetch(url, {
         method,
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(planData),
       });
 
@@ -104,13 +97,9 @@ export default function AdminPlansPage() {
     try {
       setSaving(true);
       setError(null);
-      const token = localStorage.getItem('token');
-      
       const response = await fetch(`/api/admin/plans/${planId}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
 
       if (response.ok) {
