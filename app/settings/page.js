@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '@/components/Sidebar';
@@ -10,8 +11,10 @@ import { NOTIFICATION_CHANNELS } from '@/lib/constants';
 import { formatRelativeTime } from '@/lib/utils';
 import { Save, Trash2, User, Lock, CheckCircle, Loader2, Bell, ArrowRight, AlertTriangle, Shield } from 'lucide-react';
 import Link from 'next/link';
+import { useSnackbar } from '@/components/ui/SnackbarProvider';
 
 export default function SettingsPage() {
+  const { showSnackbar } = useSnackbar();
   const [orgName, setOrgName] = useState('Acme Corporation');
   const [notifications, setNotifications] = useState(NOTIFICATION_CHANNELS);
   const [loading, setLoading] = useState(true);
@@ -59,17 +62,15 @@ export default function SettingsPage() {
     notifyOnManualCheck: false,
   });
 
-  useEffect(() => {
-    loadUserSettings();
-  }, []);
 
-  const loadUserSettings = async () => {
+
+
+  const loadUserSettings = useCallback(async () => {
     try {
       // Fetch user settings
       const response = await fetch('/api/users/settings', {
         credentials: 'include',
       });
-
       if (response.ok) {
         const data = await response.json();
         if (data.settings?.notifications?.channels) {
@@ -80,7 +81,6 @@ export default function SettingsPage() {
             enabled: channels[channel.id] ?? channel.enabled,
           })));
         }
-        
         // Load channel configuration
         if (data.settings?.notifications?.channelConfig) {
           const config = data.settings.notifications.channelConfig;
@@ -91,12 +91,10 @@ export default function SettingsPage() {
           });
         }
       }
-
       // Fetch subscription to determine allowed channels
       const subResponse = await fetch('/api/user/subscription', {
         credentials: 'include',
       });
-
       if (subResponse.ok) {
         const subData = await subResponse.json();
         setSubscription(subData.subscription);
@@ -105,7 +103,6 @@ export default function SettingsPage() {
           setPlanLimits(subData.subscription.planLimits);
         }
       }
-      
       // Load organization alert settings (for ORG_ADMIN and SUPER_ADMIN)
       if (userData?.role === 'ORG_ADMIN' || userData?.role === 'SUPER_ADMIN') {
         const orgResponse = await fetch('/api/organization/settings', {
@@ -137,7 +134,12 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userData]);
+  
+  useEffect(() => {
+    loadUserSettings();
+  }, [loadUserSettings]);
+
 
   const handleSaveProfile = async () => {
     setSaving(true);
@@ -162,10 +164,9 @@ export default function SettingsPage() {
   // Update userData state only
   // If you want to update context, call refreshUser from useAuth
 
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+  showSnackbar('Settings saved successfully!', 'success');
     } catch (err) {
-      setError(err.message);
+  showSnackbar(err.message, 'error');
     } finally {
       setSaving(false);
     }
@@ -212,10 +213,9 @@ export default function SettingsPage() {
         confirmPassword: '',
       });
 
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+  showSnackbar('Password changed successfully!', 'success');
     } catch (err) {
-      setError(err.message);
+  showSnackbar(err.message, 'error');
     } finally {
       setSaving(false);
     }
@@ -241,10 +241,9 @@ export default function SettingsPage() {
         throw new Error(data.error || 'Failed to save alert settings');
       }
 
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+  showSnackbar('Alert settings saved!', 'success');
     } catch (err) {
-      setError(err.message);
+  showSnackbar(err.message, 'error');
     } finally {
       setSaving(false);
     }
@@ -270,10 +269,9 @@ export default function SettingsPage() {
         throw new Error(data.error || 'Failed to save app settings');
       }
 
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+  showSnackbar('App settings saved!', 'success');
     } catch (err) {
-      setError(err.message);
+  showSnackbar(err.message, 'error');
     } finally {
       setSaving(false);
     }
@@ -323,10 +321,9 @@ export default function SettingsPage() {
         email: profileData.email,
       });
 
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+  showSnackbar('Settings saved successfully!', 'success');
     } catch (err) {
-      setError(err.message);
+  showSnackbar(err.message, 'error');
     } finally {
       setSaving(false);
     }
@@ -335,16 +332,14 @@ export default function SettingsPage() {
   const toggleNotification = (id) => {
     // Check if user's plan allows this channel
     if (!planLimits) {
-      setError('Plan limits not loaded. Please refresh the page.');
-      setTimeout(() => setError(null), 3000);
+    showSnackbar('Plan limits not loaded. Please refresh the page.', 'error');
       return;
     }
     
     const allowedChannels = planLimits.allowedChannels || ['email'];
     
     if (!allowedChannels.includes(id)) {
-      setError(`${id.charAt(0).toUpperCase() + id.slice(1)} notifications require a plan upgrade.`);
-      setTimeout(() => setError(null), 3000);
+  showSnackbar(`${id.charAt(0).toUpperCase() + id.slice(1)} notifications require a plan upgrade.`, 'error');
       return;
     }
 
@@ -395,100 +390,112 @@ export default function SettingsPage() {
           </button>
         </div>
 
-        {/* Success Message */}
-        <AnimatePresence>
-          {saveSuccess && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-6"
-            >
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-green-500" />
-                <p className="text-sm text-green-500 font-medium">Settings saved successfully!</p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
-            <p className="text-sm text-red-500">{error}</p>
-          </div>
-        )}
+        {/* Alerts handled globally by SnackbarProvider */}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Settings */}
           <div className="lg:col-span-2 space-y-8">
-            {/* User Profile Settings */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <User className="w-5 h-5 text-primary" />
-                    <CardTitle>User Profile</CardTitle>
-                  </div>
-                  <CardDescription>Manage your personal information</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      value={profileData.name}
-                      onChange={(e) => setProfileData({...profileData, name: e.target.value})}
-                      className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      value={profileData.email}
-                      onChange={(e) => setProfileData({...profileData, email: e.target.value})}
-                      disabled={userData?.role === 'USER'}
-                      className={`w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary ${
-                        userData?.role === 'USER' 
-                          ? 'bg-muted text-muted-foreground cursor-not-allowed' 
-                          : 'bg-background'
-                      }`}
-                    />
-                    {userData?.role === 'USER' && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Contact your organization admin to change your email address
-                      </p>
-                    )}
-                  </div>
-
-                  {userData && (
-                    <div>
+           { /* User Profile Settings */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <Card>
+                    <CardHeader>
+                      <div className="flex items-center gap-2">
+                      <User className="w-5 h-5 text-primary" />
+                      <CardTitle>User Profile</CardTitle>
+                      </div>
+                      <CardDescription>Manage your personal information</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
                       <label className="block text-sm font-medium text-foreground mb-2">
-                        Role
+                        Full Name
                       </label>
                       <input
                         type="text"
+                        value={profileData.name}
+                        onChange={(e) => setProfileData({...profileData, name: e.target.value})}
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      </div>
+                      
+                      <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Email Address
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <div className="relative w-full">
+                        <input
+                          type="email"
+                          value={profileData.email}
+                          onChange={(e) => setProfileData({...profileData, email: e.target.value})}
+                          disabled
+                          className={`w-full px-4 py-2 border bg-muted text-muted-foreground cursor-not-allowed border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary` }
+                        />
+                        <span className={`absolute right-3 top-1/2 -translate-y-1/2 px-2 py-1 rounded-full text-xs font-semibold ${
+                          userData?.emailVerified
+                          ? 'bg-green-500/10 text-green-500'
+                          : 'bg-red-500/10 text-red-500'
+                        }`}>
+                          {userData?.emailVerified ? 'Verified' : 'Unverified'}
+                        </span>
+                        </div>
+                        {!userData?.emailVerified && (
+                          <button
+                            type="button"
+                            className="underline text-red-500 hover:text-red-700 text-xs font-semibold cursor-pointer flex items-center gap-2"
+                            disabled={saving}
+                            onClick={async () => {
+                              setSaving(true);
+                              try {
+                                const res = await fetch('/api/auth/verify-email', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ email: profileData.email }),
+                                });
+                                const data = await res.json();
+                                if (!res.ok) throw new Error(data.error || 'Failed to send verification email');
+                                showSnackbar('Verification email sent! Please check your inbox.', 'success');
+                              } catch (err) {
+                                showSnackbar(err.message || 'Failed to send verification email', 'error');
+                              } finally {
+                                setSaving(false);
+                              }
+                            }}
+                          >
+                            {saving ? <Loader2 className="animate-spin w-4 h-4 mr-1" /> : null}
+                            Verify
+                          </button>
+                        )}
+                      </div>
+                      {userData?.role === 'USER' && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                        Contact your organization admin to change your email address
+                        </p>
+                      )}
+                      </div>
+
+                      {userData && (
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                        Role
+                        </label>
+                        <input
+                        type="text"
                         value={userData.role === 'SUPER_ADMIN' ? 'Super Admin' : 
-                               userData.role === 'ORG_ADMIN' ? 'Organization Admin' : 'User'}
+                             userData.role === 'ORG_ADMIN' ? 'Organization Admin' : 'User'}
                         disabled
                         className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-muted-foreground"
-                      />
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-               {/* Change Password */}
+                        />
+                      </div>
+                      )}
+                    </CardContent>
+                    </Card>
+                  </motion.div>
+                     {/* Change Password */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -685,7 +692,7 @@ export default function SettingsPage() {
                                 className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                               />
                               <p className="text-xs text-muted-foreground mt-2">
-                                We'll POST JSON alerts to this endpoint
+                                We&apos;ll POST JSON alerts to this endpoint
                               </p>
                             </div>
                           )}
@@ -920,7 +927,7 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors">
                       <div>
                         <h4 className="font-medium text-foreground mb-1">Email on Manual Checks</h4>
-                        <p className="text-sm text-muted-foreground">Send email notifications when users click "Check Now"</p>
+                        <p className="text-sm text-muted-foreground">Send email notifications when users click &quot;Check Now&quot;</p>
                       </div>
                       <button 
                         onClick={() => setAppSettings(prev => ({ ...prev, notifyOnManualCheck: !prev.notifyOnManualCheck }))}

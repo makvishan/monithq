@@ -17,12 +17,25 @@ CREATE TYPE "SubscriptionPlan" AS ENUM ('FREE', 'STARTER', 'PRO', 'ENTERPRISE');
 CREATE TYPE "SubscriptionStatus" AS ENUM ('ACTIVE', 'PAST_DUE', 'CANCELED', 'TRIALING');
 
 -- CreateTable
+CREATE TABLE "AppSettings" (
+    "id" TEXT NOT NULL DEFAULT 'app_settings',
+    "notifyOnManualCheck" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "AppSettings_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Organization" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "logo" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "alertThreshold" INTEGER NOT NULL DEFAULT 2,
+    "alertCooldownMinutes" INTEGER NOT NULL DEFAULT 15,
+    "maintenanceMode" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "Organization_pkey" PRIMARY KEY ("id")
 );
@@ -39,7 +52,18 @@ CREATE TABLE "User" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "lastLoginAt" TIMESTAMP(3),
-    "organizationId" TEXT NOT NULL,
+    "notifyOnIncident" BOOLEAN NOT NULL DEFAULT true,
+    "notifyOnResolution" BOOLEAN NOT NULL DEFAULT true,
+    "notifyOnDegradation" BOOLEAN NOT NULL DEFAULT true,
+    "notifyOnlyAdmins" BOOLEAN NOT NULL DEFAULT false,
+    "notifyViaEmail" BOOLEAN NOT NULL DEFAULT true,
+    "notifyViaSlack" BOOLEAN NOT NULL DEFAULT false,
+    "notifyViaSms" BOOLEAN NOT NULL DEFAULT false,
+    "notifyViaWebhook" BOOLEAN NOT NULL DEFAULT false,
+    "slackWebhookUrl" TEXT,
+    "smsPhoneNumber" TEXT,
+    "customWebhookUrl" TEXT,
+    "organizationId" TEXT,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
@@ -166,6 +190,116 @@ CREATE TABLE "AuditLog" (
     CONSTRAINT "AuditLog_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "ApiKey" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "createdById" TEXT NOT NULL,
+    "lastUsedAt" TIMESTAMP(3),
+    "expiresAt" TIMESTAMP(3),
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ApiKey_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Webhook" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
+    "events" TEXT[],
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "secret" TEXT,
+    "organizationId" TEXT NOT NULL,
+    "createdById" TEXT NOT NULL,
+    "lastTriggeredAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Webhook_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "StatusPage" (
+    "id" TEXT NOT NULL,
+    "slug" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT,
+    "logoUrl" TEXT,
+    "isPublic" BOOLEAN NOT NULL DEFAULT true,
+    "customDomain" TEXT,
+    "showUptime" BOOLEAN NOT NULL DEFAULT true,
+    "showIncidents" BOOLEAN NOT NULL DEFAULT true,
+    "organizationId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "StatusPage_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SiteSubscription" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "siteId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SiteSubscription_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Plan" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "displayName" TEXT NOT NULL,
+    "description" TEXT,
+    "price" INTEGER NOT NULL,
+    "stripePriceId" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "isPopular" BOOLEAN NOT NULL DEFAULT false,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "maxSites" INTEGER NOT NULL DEFAULT -1,
+    "maxTeamMembers" INTEGER NOT NULL DEFAULT -1,
+    "minCheckInterval" INTEGER NOT NULL DEFAULT 300,
+    "maxAICredits" INTEGER NOT NULL DEFAULT 0,
+    "allowedChannels" TEXT[] DEFAULT ARRAY['email']::TEXT[],
+    "features" JSONB NOT NULL DEFAULT '[]',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Plan_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PasswordReset" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "token" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PasswordReset_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AiInsight" (
+    "id" SERIAL NOT NULL,
+    "orgId" TEXT NOT NULL,
+    "siteId" TEXT,
+    "title" TEXT NOT NULL,
+    "category" TEXT,
+    "summary" TEXT NOT NULL,
+    "confidenceScore" DOUBLE PRECISION NOT NULL,
+    "recommendations" TEXT,
+    "generatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AiInsight_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE INDEX "Organization_createdAt_idx" ON "Organization"("createdAt");
 
@@ -265,6 +399,69 @@ CREATE INDEX "AuditLog_userId_idx" ON "AuditLog"("userId");
 -- CreateIndex
 CREATE INDEX "AuditLog_createdAt_idx" ON "AuditLog"("createdAt");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "ApiKey_key_key" ON "ApiKey"("key");
+
+-- CreateIndex
+CREATE INDEX "ApiKey_key_idx" ON "ApiKey"("key");
+
+-- CreateIndex
+CREATE INDEX "ApiKey_organizationId_idx" ON "ApiKey"("organizationId");
+
+-- CreateIndex
+CREATE INDEX "ApiKey_createdById_idx" ON "ApiKey"("createdById");
+
+-- CreateIndex
+CREATE INDEX "ApiKey_isActive_idx" ON "ApiKey"("isActive");
+
+-- CreateIndex
+CREATE INDEX "Webhook_organizationId_idx" ON "Webhook"("organizationId");
+
+-- CreateIndex
+CREATE INDEX "Webhook_createdById_idx" ON "Webhook"("createdById");
+
+-- CreateIndex
+CREATE INDEX "Webhook_isActive_idx" ON "Webhook"("isActive");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "StatusPage_slug_key" ON "StatusPage"("slug");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "StatusPage_organizationId_key" ON "StatusPage"("organizationId");
+
+-- CreateIndex
+CREATE INDEX "StatusPage_slug_idx" ON "StatusPage"("slug");
+
+-- CreateIndex
+CREATE INDEX "StatusPage_isPublic_idx" ON "StatusPage"("isPublic");
+
+-- CreateIndex
+CREATE INDEX "SiteSubscription_userId_idx" ON "SiteSubscription"("userId");
+
+-- CreateIndex
+CREATE INDEX "SiteSubscription_siteId_idx" ON "SiteSubscription"("siteId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SiteSubscription_userId_siteId_key" ON "SiteSubscription"("userId", "siteId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Plan_name_key" ON "Plan"("name");
+
+-- CreateIndex
+CREATE INDEX "Plan_name_idx" ON "Plan"("name");
+
+-- CreateIndex
+CREATE INDEX "Plan_isActive_idx" ON "Plan"("isActive");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PasswordReset_token_key" ON "PasswordReset"("token");
+
+-- CreateIndex
+CREATE INDEX "PasswordReset_userId_idx" ON "PasswordReset"("userId");
+
+-- CreateIndex
+CREATE INDEX "PasswordReset_token_idx" ON "PasswordReset"("token");
+
 -- AddForeignKey
 ALTER TABLE "User" ADD CONSTRAINT "User_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -297,3 +494,33 @@ ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE "Notification" ADD CONSTRAINT "Notification_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "Site"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ApiKey" ADD CONSTRAINT "ApiKey_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ApiKey" ADD CONSTRAINT "ApiKey_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Webhook" ADD CONSTRAINT "Webhook_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Webhook" ADD CONSTRAINT "Webhook_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "StatusPage" ADD CONSTRAINT "StatusPage_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SiteSubscription" ADD CONSTRAINT "SiteSubscription_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SiteSubscription" ADD CONSTRAINT "SiteSubscription_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "Site"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PasswordReset" ADD CONSTRAINT "PasswordReset_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AiInsight" ADD CONSTRAINT "AiInsight_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AiInsight" ADD CONSTRAINT "AiInsight_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "Site"("id") ON DELETE SET NULL ON UPDATE CASCADE;

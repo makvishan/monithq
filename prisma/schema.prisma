@@ -1,3 +1,4 @@
+
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
@@ -80,6 +81,7 @@ model Organization {
   apiKeys       ApiKey[]
   webhooks      Webhook[]
   statusPage    StatusPage?
+  aiInsights    AiInsight[]
 
   @@index([createdAt])
 }
@@ -92,6 +94,8 @@ model User {
   role          UserRole @default(USER)
   avatar        String?
   emailVerified Boolean  @default(false)
+  verificationToken String?
+  verificationTokenExpires DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   lastLoginAt   DateTime?
@@ -168,6 +172,7 @@ model Site {
   checks         SiteCheck[]
   notifications  Notification[]
   subscribers    SiteSubscription[]
+  aiInsights     AiInsight[]
 
   @@index([organizationId])
   @@index([status])
@@ -398,4 +403,19 @@ model PasswordReset {
 
   @@index([userId])
   @@index([token])
+}
+
+model AiInsight {
+  id              Int       @id @default(autoincrement())
+  orgId           String
+  siteId          String?
+  title           String
+  category        String?   // e.g., "Performance", "Alert"
+  summary         String
+  confidenceScore Float
+  recommendations String?
+  generatedAt     DateTime  @default(now())
+
+  organization    Organization @relation(fields: [orgId], references: [id])
+  site            Site?         @relation(fields: [siteId], references: [id])
 }

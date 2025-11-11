@@ -24,7 +24,7 @@ import Sidebar from '@/components/Sidebar';
 import MainContent from '@/components/MainContent';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/Card';
 import SiteEditModal from '@/components/SiteEditModal';
-import showToast from '@/lib/toast';
+import { useSnackbar } from '@/components/ui/SnackbarProvider';
 import { 
   ArrowLeft, 
   ExternalLink, 
@@ -48,6 +48,7 @@ import {
 export default function SiteDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { showSnackbar } = useSnackbar();
   const [site, setSite] = useState(null);
   const [checks, setChecks] = useState([]);
   const [incidents, setIncidents] = useState([]);
@@ -71,7 +72,7 @@ export default function SiteDetailPage() {
     if (params.id) {
       fetchAllData();
     }
-  }, [params.id]);
+  }, [params.id, fetchAllData]);
 
   // Fetch data when time range changes (only affects trend and timeline)
   useEffect(() => {
@@ -79,9 +80,9 @@ export default function SiteDetailPage() {
       fetchUptimeTrend();
       fetchTimeline();
     }
-  }, [timeRange]);
+  }, [timeRange, fetchTimeline, fetchUptimeTrend, params.id, summary]);
 
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     // Fetch all 6 APIs in parallel
     await Promise.all([
       fetchSummary(),
@@ -91,9 +92,9 @@ export default function SiteDetailPage() {
       fetchChecks(),
       fetchIncidents(),
     ]);
-  };
+  }, [fetchSummary, fetchUptimeTrend, fetchDistributions, fetchTimeline, fetchChecks, fetchIncidents]);
 
-  const fetchSummary = async () => {
+  const fetchSummary = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, summary: true }));
       const response = await fetch(`/api/sites/${params.id}/summary`);
@@ -108,18 +109,18 @@ export default function SiteDetailPage() {
           status: data.site.status 
         });
       } else {
-        showToast.error(data.error || 'Failed to load site summary');
+        showSnackbar(data.error || 'Failed to load site summary', 'error');
         if (response.status === 404) router.push('/sites');
       }
     } catch (error) {
       console.error('Error fetching summary:', error);
-      showToast.error('Failed to load site summary');
+      showSnackbar('Failed to load site summary', 'error');
     } finally {
       setLoading(prev => ({ ...prev, summary: false }));
     }
-  };
+  }, [params.id, router, showSnackbar]);
 
-  const fetchUptimeTrend = async () => {
+  const fetchUptimeTrend = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, trend: true }));
       const response = await fetch(`/api/sites/${params.id}/uptime-trend?period=${timeRange}`);
@@ -135,9 +136,9 @@ export default function SiteDetailPage() {
     } finally {
       setLoading(prev => ({ ...prev, trend: false }));
     }
-  };
+  }, [params.id, timeRange]);
 
-  const fetchDistributions = async () => {
+  const fetchDistributions = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, distributions: true }));
       const response = await fetch(`/api/sites/${params.id}/distributions?limit=50`);
@@ -153,9 +154,9 @@ export default function SiteDetailPage() {
     } finally {
       setLoading(prev => ({ ...prev, distributions: false }));
     }
-  };
+  }, [params.id]);
 
-  const fetchTimeline = async () => {
+  const fetchTimeline = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, timeline: true }));
       const period = timeRange === '24h' ? '24h' : '7d';
@@ -172,9 +173,9 @@ export default function SiteDetailPage() {
     } finally {
       setLoading(prev => ({ ...prev, timeline: false }));
     }
-  };
+  }, [params.id, timeRange]);
 
-  const fetchChecks = async () => {
+  const fetchChecks = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, checks: true }));
       const response = await fetch(`/api/sites/${params.id}/checks?limit=50`);
@@ -190,9 +191,9 @@ export default function SiteDetailPage() {
     } finally {
       setLoading(prev => ({ ...prev, checks: false }));
     }
-  };
+  }, [params.id]);
 
-  const fetchIncidents = async () => {
+  const fetchIncidents = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, incidents: true }));
       const response = await fetch(`/api/incidents?siteId=${params.id}`);
@@ -208,7 +209,7 @@ export default function SiteDetailPage() {
     } finally {
       setLoading(prev => ({ ...prev, incidents: false }));
     }
-  };
+  }, [params.id]);
 
   const handleCheckNow = async () => {
     setChecking(true);
@@ -227,14 +228,12 @@ export default function SiteDetailPage() {
         const statusEmoji = data.check.status === 'ONLINE' ? '✅' : 
                            data.check.status === 'DEGRADED' ? '⚠️' : '❌';
         
-        showToast.success(
-          `${statusEmoji} ${data.check.status} (${data.check.latency}ms)`
-        );
+        showSnackbar(`${statusEmoji} ${data.check.status} (${data.check.latency}ms)`, 'success');
       } else {
-        showToast.error(data.error || 'Failed to check site');
+        showSnackbar(data.error || 'Failed to check site', 'error');
       }
     } catch (err) {
-      showToast.error(err.message || 'Failed to check site');
+      showSnackbar(err.message || 'Failed to check site', 'error');
     } finally {
       setChecking(false);
     }
@@ -872,7 +871,7 @@ export default function SiteDetailPage() {
               </div>
               {checks.length === 0 && (
                 <div className="text-center py-12 text-muted-foreground">
-                  No checks recorded yet. Click "Check Now" to perform the first check.
+                  No checks recorded yet. Click &quot;Check Now&quot; to perform the first check.
                 </div>
               )}
             </CardContent>
@@ -944,7 +943,6 @@ export default function SiteDetailPage() {
           onClose={() => setShowEditModal(false)}
           onUpdate={(updatedSite) => {
             setSite(updatedSite);
-            fetchSiteDetails(); // Refresh all data
           }}
         />
       )}

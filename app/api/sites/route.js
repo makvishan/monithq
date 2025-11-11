@@ -122,9 +122,18 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await requireAuth(request);
-    
     if (user instanceof NextResponse) {
       return user;
+    }
+    // Restrict ORG_ADMIN from creating site if email not verified
+    if (user.role === 'ORG_ADMIN' && !user.emailVerified) {
+      return NextResponse.json(
+        {
+          error: 'Email verification is pending. Please verify your email before creating a site.',
+          verify: true,
+        },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -149,18 +158,18 @@ export async function POST(request) {
     }
 
     // Check if user has reached site limit based on subscription
-    const membership = await prisma.organizationMember.findFirst({
-      where: {
-        userId: user.id,
-      },
+   const membership = await prisma.user.findFirst({
+  where: {
+    id: user.id,
+  },
+  include: {
+    organization: {
       include: {
-        organization: {
-          include: {
-            subscription: true,
-          },
-        },
+        subscription: true,
       },
-    });
+    },
+  },
+});
 
     const subscription = membership?.organization?.subscription;
     const planLimits = await getPlanLimits(subscription?.plan || 'FREE');

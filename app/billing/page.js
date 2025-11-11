@@ -37,27 +37,6 @@ function BillingPageContent({ router }) {
   const [currentPlan, setCurrentPlan] = useState(null);
   const [error, setError] = useState(null);
 
-  const mockSubscription = {
-    plan: 'STARTER',
-    status: 'ACTIVE',
-    currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    usage: {
-      sites: 3,
-      aiCredits: 750,
-    },
-    paymentMethod: {
-      brand: 'Visa',
-      last4: '4242',
-      expiryMonth: 12,
-      expiryYear: 2025,
-    },
-    billingHistory: [
-      { id: 1, date: '2024-12-01', description: 'Starter Plan - Monthly', amount: 2900, status: 'paid' },
-      { id: 2, date: '2024-11-01', description: 'Starter Plan - Monthly', amount: 2900, status: 'paid' },
-      { id: 3, date: '2024-10-01', description: 'Starter Plan - Monthly', amount: 2900, status: 'paid' },
-    ],
-  };
-
   useEffect(() => {
     const mockSubscription = {
       plan: 'STARTER',
@@ -110,38 +89,13 @@ function BillingPageContent({ router }) {
         setLoading(false);
       }
     };
+
     fetchPlans();
     fetchSubscription();
   }, [searchParams]);
 
-  const fetchPlans = async () => {
-    try {
-      const response = await fetch('/api/plans?active=true');
-      if (response.ok) {
-        const data = await response.json();
-        setPlans(data.plans || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch plans:', error);
-    }
-  };
 
-  const fetchSubscription = async () => {
-    try {
-      const response = await fetch('/api/user/subscription');
-      if (response.ok) {
-        const data = await response.json();
-        setSubscription(data.subscription || mockSubscription);
-      } else {
-        setSubscription(mockSubscription);
-      }
-    } catch (error) {
-      console.error('Failed to fetch subscription:', error);
-      setSubscription(mockSubscription);
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   // Find current plan from database
   useEffect(() => {

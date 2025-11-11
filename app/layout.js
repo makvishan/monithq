@@ -31,15 +31,18 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
+  const { SnackbarProvider } = require('@/components/ui/SnackbarProvider');
   return (
     <html lang="en" className={`${outfit.variable} ${firaCode.variable}`}>
       <body className="antialiased">
         <AuthProvider>
           <SidebarProvider>
             <SocketProvider>
-              {children}
-              <NotificationToast />
-              <Toaster />
+              <SnackbarProvider>
+                {children}
+                <NotificationToast />
+                <Toaster />
+              </SnackbarProvider>
             </SocketProvider>
           </SidebarProvider>
         </AuthProvider>
