@@ -13,7 +13,19 @@ export async function GET(request, { params }) {
       return user;
     }
 
-    const { id } = params;
+    let id = params?.id;
+    // Fallback: extract id from URL if params is missing or Proxy
+    if (!id || typeof id !== 'string') {
+      const urlParts = request.url.split('/');
+      id = urlParts[urlParts.length - 1];
+      console.log('Fallback id from URL:', id);
+    }
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Incident ID is required' },
+        { status: 400 }
+      );
+    }
 
     const incident = await prisma.incident.findUnique({
       where: { id },
@@ -68,7 +80,19 @@ export async function PUT(request, { params }) {
       return user;
     }
 
-    const { id } = params;
+    let id = params?.id;
+    // Fallback: extract id from URL if params is missing or Proxy
+    if (!id || typeof id !== 'string') {
+      const urlParts = request.url.split('/');
+      id = urlParts[urlParts.length - 1];
+      console.log('Fallback id from URL:', id);
+    }
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Incident ID is required' },
+        { status: 400 }
+      );
+    }
     const body = await request.json();
 
     // Get existing incident

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
@@ -68,46 +68,16 @@ export default function SiteDetailPage() {
   const [timeRange, setTimeRange] = useState('24h'); // 24h, 7d, 30d
   const [showEditModal, setShowEditModal] = useState(false);
 
-  useEffect(() => {
-    if (params.id) {
-      fetchAllData();
-    }
-  }, [params.id, fetchAllData]);
 
-  // Fetch data when time range changes (only affects trend and timeline)
-  useEffect(() => {
-    if (params.id && summary) {
-      fetchUptimeTrend();
-      fetchTimeline();
-    }
-  }, [timeRange, fetchTimeline, fetchUptimeTrend, params.id, summary]);
-
-  const fetchAllData = useCallback(async () => {
-    // Fetch all 6 APIs in parallel
-    await Promise.all([
-      fetchSummary(),
-      fetchUptimeTrend(),
-      fetchDistributions(),
-      fetchTimeline(),
-      fetchChecks(),
-      fetchIncidents(),
-    ]);
-  }, [fetchSummary, fetchUptimeTrend, fetchDistributions, fetchTimeline, fetchChecks, fetchIncidents]);
-
+  // Move all fetch* useCallback definitions above fetchAllData
   const fetchSummary = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, summary: true }));
       const response = await fetch(`/api/sites/${params.id}/summary`);
       const data = await response.json();
-      
       if (response.ok && data.site) {
         setSummary(data.site);
-        setSite({ 
-          id: data.site.id, 
-          name: data.site.name, 
-          url: data.site.url, 
-          status: data.site.status 
-        });
+        setSite({ id: data.site.id, name: data.site.name, url: data.site.url, status: data.site.status });
       } else {
         showSnackbar(data.error || 'Failed to load site summary', 'error');
         if (response.status === 404) router.push('/sites');
@@ -125,7 +95,6 @@ export default function SiteDetailPage() {
       setLoading(prev => ({ ...prev, trend: true }));
       const response = await fetch(`/api/sites/${params.id}/uptime-trend?period=${timeRange}`);
       const data = await response.json();
-      
       if (response.ok) {
         setUptimeTrend(data);
       } else {
@@ -143,7 +112,6 @@ export default function SiteDetailPage() {
       setLoading(prev => ({ ...prev, distributions: true }));
       const response = await fetch(`/api/sites/${params.id}/distributions?limit=50`);
       const data = await response.json();
-      
       if (response.ok) {
         setDistributions(data);
       } else {
@@ -162,7 +130,6 @@ export default function SiteDetailPage() {
       const period = timeRange === '24h' ? '24h' : '7d';
       const response = await fetch(`/api/sites/${params.id}/timeline?period=${period}`);
       const data = await response.json();
-      
       if (response.ok) {
         setTimeline(data);
       } else {
@@ -180,7 +147,6 @@ export default function SiteDetailPage() {
       setLoading(prev => ({ ...prev, checks: true }));
       const response = await fetch(`/api/sites/${params.id}/checks?limit=50`);
       const data = await response.json();
-      
       if (response.ok) {
         setChecks(data.checks || []);
       } else {
@@ -198,7 +164,6 @@ export default function SiteDetailPage() {
       setLoading(prev => ({ ...prev, incidents: true }));
       const response = await fetch(`/api/incidents?siteId=${params.id}`);
       const data = await response.json();
-      
       if (response.ok) {
         setIncidents(data.incidents || []);
       } else {
@@ -210,6 +175,33 @@ export default function SiteDetailPage() {
       setLoading(prev => ({ ...prev, incidents: false }));
     }
   }, [params.id]);
+
+  const fetchAllData = useCallback(async () => {
+    // Fetch all 6 APIs in parallel
+    await Promise.all([
+      fetchSummary(),
+      fetchUptimeTrend(),
+      fetchDistributions(),
+      fetchTimeline(),
+      fetchChecks(),
+      fetchIncidents(),
+    ]);
+  }, [fetchSummary, fetchUptimeTrend, fetchDistributions, fetchTimeline, fetchChecks, fetchIncidents]);
+
+  useEffect(() => {
+    if (params.id) {
+      fetchAllData();
+    }
+  }, [params.id, fetchAllData]);
+
+  // Fetch data when time range changes (only affects trend and timeline)
+  useEffect(() => {
+    if (params.id && summary) {
+      fetchUptimeTrend();
+      fetchTimeline();
+    }
+  }, [timeRange, fetchTimeline, fetchUptimeTrend, params.id, summary]);
+
 
   const handleCheckNow = async () => {
     setChecking(true);
