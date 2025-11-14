@@ -145,16 +145,24 @@ export async function PUT(request, { params }) {
       }
     }
 
+    // Build update data
+    const updateData = {
+      ...(body.name !== undefined && { name: body.name }),
+      ...(body.url !== undefined && { url: body.url }),
+      ...(body.checkInterval !== undefined && { checkInterval: body.checkInterval }),
+      ...(body.region !== undefined && { region: body.region }),
+      ...(body.enabled !== undefined && { enabled: body.enabled }),
+      // SSL Monitoring settings (only for HTTPS sites)
+      ...((body.url || existingSite.url).startsWith('https://') && {
+        ...(body.sslMonitoringEnabled !== undefined && { sslMonitoringEnabled: body.sslMonitoringEnabled }),
+        ...(body.sslAlertThreshold !== undefined && { sslAlertThreshold: body.sslAlertThreshold }),
+      }),
+    };
+
     // Update site
     const site = await prisma.site.update({
       where: { id },
-      data: {
-        name: body.name,
-        url: body.url,
-        checkInterval: body.checkInterval,
-        region: body.region,
-        enabled: body.enabled,
-      },
+      data: updateData,
       include: {
         organization: {
           select: {

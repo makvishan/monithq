@@ -24,6 +24,7 @@ import Sidebar from '@/components/Sidebar';
 import MainContent from '@/components/MainContent';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/Card';
 import SiteEditModal from '@/components/SiteEditModal';
+import SSLCertificateCard from '@/components/SSLCertificateCard';
 import { useSnackbar } from '@/components/ui/SnackbarProvider';
 import { 
   ArrowLeft, 
@@ -447,11 +448,29 @@ export default function SiteDetailPage() {
           </motion.div>
         </div>
 
+        {/* SSL Certificate Card */}
+        {site && site.url && site.url.startsWith('https://') && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.4 }}
+            className="mb-8"
+          >
+            <SSLCertificateCard
+              site={{
+                ...site,
+                ...summary
+              }}
+              onRefresh={fetchAllData}
+            />
+          </motion.div>
+        )}
+
         {/* Uptime Statistics */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.4 }}
+          transition={{ duration: 0.3, delay: 0.5 }}
           className="mb-8"
         >
           <Card>

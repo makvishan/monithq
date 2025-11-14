@@ -64,6 +64,11 @@ export async function GET(request) {
         enabled: true,
         createdAt: true,
         updatedAt: true,
+        // SSL Certificate fields
+        sslMonitoringEnabled: true,
+        sslExpiryDate: true,
+        sslDaysRemaining: true,
+        sslCertificateValid: true,
         organization: {
           select: {
             id: true,
@@ -137,7 +142,7 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { name, url, checkInterval, region } = body;
+    const { name, url, checkInterval, region, sslMonitoringEnabled, sslAlertThreshold } = body;
 
     // Validation
     if (!name || !url) {
@@ -214,6 +219,11 @@ export async function POST(request) {
         region: region || 'US East',
         organizationId: user.organizationId,
         createdById: user.id,
+        // SSL Monitoring settings (only for HTTPS sites)
+        ...(url.startsWith('https://') && {
+          sslMonitoringEnabled: sslMonitoringEnabled ?? true,
+          sslAlertThreshold: sslAlertThreshold || 30,
+        }),
       },
       include: {
         organization: {

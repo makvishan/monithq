@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import fetch from 'node-fetch';
 import { notifyIncidentCreated, notifySiteStatusChanged } from '@/lib/pusher-server';
-import { notifyTeamOfIncident, notifyTeamOfResolution } from '@/lib/notify';
+import { notifyTeamOfIncident, notifyTeamOfResolution, sendSSLExpiryNotification } from '@/lib/notify';
 import { SITE_STATUS, INCIDENT_STATUS } from '@/lib/constants';
+import { checkSSLCertificate, shouldSendSSLAlert } from '@/lib/ssl';
 
 // Verify cron secret to prevent unauthorized access
 const verifyCronSecret = (request) => {
@@ -221,12 +222,104 @@ const updateSiteStatus = async (site, newStatus, latency, error = null) => {
 
 const shouldCheckSite = (site) => {
   if (!site.lastCheckedAt) return true; // Never checked before
-  
+
   const now = new Date();
   const secondsSinceLastCheck = (now - site.lastCheckedAt) / 1000;
   const checkInterval = site.checkInterval || 60; // Default 60 seconds
-  
+
   return secondsSinceLastCheck >= checkInterval;
+};
+
+const shouldCheckSSL = (site) => {
+  // Check SSL every 24 hours
+  if (!site.sslMonitoringEnabled) return false;
+  if (!site.sslLastChecked) return true; // Never checked before
+
+  const now = new Date();
+  const hoursSinceLastCheck = (now - new Date(site.sslLastChecked)) / (1000 * 60 * 60);
+
+  return hoursSinceLastCheck >= 24; // Check once per day
+};
+
+const checkAndUpdateSSL = async (site) => {
+  try {
+    const sslInfo = await checkSSLCertificate(site.url);
+
+    if (!sslInfo.isHttps) {
+      // Not an HTTPS site, disable SSL monitoring
+      await prisma.site.update({
+        where: { id: site.id },
+        data: {
+          sslMonitoringEnabled: false,
+          sslLastChecked: new Date()
+        }
+      });
+      return null;
+    }
+
+    const now = new Date();
+    const updateData = {
+      sslLastChecked: now
+    };
+
+    if (sslInfo.valid) {
+      updateData.sslCertificateValid = sslInfo.valid;
+      updateData.sslIssuer = sslInfo.issuer;
+      updateData.sslValidFrom = sslInfo.validFrom;
+      updateData.sslExpiryDate = sslInfo.validTo;
+      updateData.sslDaysRemaining = sslInfo.daysRemaining;
+
+      // Check if we should send an alert
+      const shouldAlert = shouldSendSSLAlert(
+        sslInfo.daysRemaining,
+        site.sslAlertThreshold,
+        site.sslLastChecked
+      );
+
+      if (shouldAlert) {
+        // Send SSL expiry notification
+        await sendSSLExpiryNotification(site, sslInfo);
+      }
+    } else {
+      updateData.sslCertificateValid = false;
+      updateData.sslIssuer = null;
+      updateData.sslValidFrom = null;
+      updateData.sslExpiryDate = null;
+      updateData.sslDaysRemaining = null;
+    }
+
+    // Update site with current SSL state
+    await prisma.site.update({
+      where: { id: site.id },
+      data: updateData
+    });
+
+    // Create historical SSL check record
+    await prisma.sSLCheck.create({
+      data: {
+        siteId: site.id,
+        organizationId: site.organizationId,
+        valid: sslInfo.valid || false,
+        issuer: sslInfo.issuer,
+        subject: sslInfo.subject,
+        validFrom: sslInfo.validFrom,
+        validTo: sslInfo.validTo,
+        daysRemaining: sslInfo.daysRemaining,
+        serialNumber: sslInfo.serialNumber,
+        fingerprint: sslInfo.fingerprint,
+        algorithm: sslInfo.algorithm,
+        authorized: sslInfo.authorized,
+        authorizationError: sslInfo.authorizationError,
+        errorMessage: sslInfo.error,
+        checkedAt: now
+      }
+    });
+
+    return sslInfo;
+  } catch (error) {
+    console.error(`[SSL Check] Error checking SSL for ${site.name}:`, error.message);
+    return null;
+  }
 };
 
 export async function POST(request) {
@@ -251,7 +344,9 @@ export async function POST(request) {
 
     // Filter sites that need to be checked based on their interval
     const sitesToCheck = sites.filter(shouldCheckSite);
+    const sitesToCheckSSL = sites.filter(shouldCheckSSL);
     console.log(`[Cron] Checking ${sitesToCheck.length} sites (${sites.length - sitesToCheck.length} skipped based on interval)`);
+    console.log(`[Cron] Checking SSL for ${sitesToCheckSSL.length} sites`);
 
     const results = [];
 
@@ -259,7 +354,7 @@ export async function POST(request) {
       try {
         const { status, latency, error } = await checkSite(site);
         await updateSiteStatus(site, status, latency, error);
-        
+
         results.push({
           site: site.name,
           status,
@@ -278,6 +373,25 @@ export async function POST(request) {
       }
     }
 
+    // Check SSL certificates separately
+    const sslResults = [];
+    for (const site of sitesToCheckSSL) {
+      try {
+        const sslInfo = await checkAndUpdateSSL(site);
+        if (sslInfo) {
+          sslResults.push({
+            site: site.name,
+            valid: sslInfo.valid,
+            daysRemaining: sslInfo.daysRemaining,
+            issuer: sslInfo.issuer
+          });
+          console.log(`[SSL Check] ${site.name}: ${sslInfo.valid ? `Valid (${sslInfo.daysRemaining} days remaining)` : 'Invalid'}`);
+        }
+      } catch (error) {
+        console.error(`[SSL Check] Error checking ${site.name}:`, error);
+      }
+    }
+
     console.log('[Cron] Health checks complete');
 
     return NextResponse.json({
@@ -285,7 +399,9 @@ export async function POST(request) {
       totalSites: sites.length,
       checked: sitesToCheck.length,
       skipped: sites.length - sitesToCheck.length,
+      sslChecked: sitesToCheckSSL.length,
       results,
+      sslResults,
     }, { status: 200 });
 
   } catch (error) {

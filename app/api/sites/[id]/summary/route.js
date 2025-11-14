@@ -28,6 +28,15 @@ export async function GET(request, { params }) {
         region: true,
         enabled: true,
         createdAt: true,
+        // SSL Certificate fields
+        sslMonitoringEnabled: true,
+        sslExpiryDate: true,
+        sslIssuer: true,
+        sslValidFrom: true,
+        sslDaysRemaining: true,
+        sslLastChecked: true,
+        sslCertificateValid: true,
+        sslAlertThreshold: true,
         organization: {
           select: {
             id: true,

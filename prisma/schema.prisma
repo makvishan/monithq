@@ -76,6 +76,7 @@ model Organization {
   // Relationships
   users         User[]
   sites         Site[]
+  sslChecks     SSLCheck[]
   subscription  Subscription?
   invitations   Invitation[]
   apiKeys       ApiKey[]
@@ -161,6 +162,16 @@ model Site {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
+  // SSL Certificate Monitoring (Current State)
+  sslMonitoringEnabled  Boolean   @default(true)
+  sslExpiryDate        DateTime?  // Current certificate expiry (cached from last check)
+  sslIssuer            String?    // Current issuer (cached)
+  sslValidFrom         DateTime?  // Current valid from (cached)
+  sslDaysRemaining     Int?       // Current days remaining (cached)
+  sslLastChecked       DateTime?  // Last check timestamp
+  sslCertificateValid  Boolean   @default(true) // Current validity status
+  sslAlertThreshold    Int       @default(30) // Days before expiry to alert
+
   // Foreign Keys
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -170,6 +181,7 @@ model Site {
   // Relationships
   incidents      Incident[]
   checks         SiteCheck[]
+  sslChecks      SSLCheck[]  // Historical SSL checks
   notifications  Notification[]
   subscribers    SiteSubscription[]
   aiInsights     AiInsight[]
@@ -192,6 +204,33 @@ model SiteCheck {
 
   @@index([siteId])
   @@index([checkedAt])
+}
+
+model SSLCheck {
+  id                String    @id @default(cuid())
+  siteId            String
+  organizationId    String
+  valid             Boolean   @default(false)
+  issuer            String?
+  subject           String?
+  validFrom         DateTime?
+  validTo           DateTime?
+  daysRemaining     Int?
+  serialNumber      String?
+  fingerprint       String?
+  algorithm         String?
+  authorized        Boolean?
+  authorizationError String?
+  errorMessage      String?
+  checkedAt         DateTime  @default(now())
+
+  site         Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([siteId])
+  @@index([organizationId])
+  @@index([checkedAt])
+  @@index([validTo])
 }
 
 model Incident {

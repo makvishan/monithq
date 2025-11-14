@@ -198,7 +198,7 @@ export default function WebhooksPage() {
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-blue-900">How Webhooks Work</h3>
                 <a
-                  href="/MonitHQ_Webhook_Integration_Guide.pdf"
+                  href="/assets/docs/MonitHQ_Webhook_Integration_Guide.pdf"
                   download
                   className="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all shadow-md text-sm"
                   title="Download Webhook Integration Guide"
