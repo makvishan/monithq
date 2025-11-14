@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Zap, Loader2, ArrowLeft, AlertCircle, X } from 'lucide-react';
-import { formatAmount } from '@/lib/stripe';
+import { formatAmount } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Sidebar from '@/components/Sidebar';

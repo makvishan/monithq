@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import fetch from 'node-fetch';
 import { notifyIncidentCreated, notifySiteStatusChanged } from '@/lib/pusher-server';
-import { notifyTeamOfIncident, notifyTeamOfResolution } from '@/lib/resend';
+import { notifyTeamOfIncident, notifyTeamOfResolution } from '@/lib/notify';
 import { SITE_STATUS, INCIDENT_STATUS } from '@/lib/constants';
 
 // Verify cron secret to prevent unauthorized access

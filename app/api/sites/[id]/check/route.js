@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuth, checkOrganizationAccess } from '@/lib/api-middleware';
 import { notifySiteStatusChanged, notifyIncidentCreated } from '@/lib/pusher-server';
-import { notifyTeamOfIncident } from '@/lib/resend';
+import { notifyTeamOfIncident } from '@/lib/notify';
 
 // Helper function to check a single site
 const checkSite = async (site) => {

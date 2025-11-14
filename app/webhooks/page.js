@@ -194,8 +194,19 @@ export default function WebhooksPage() {
         <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 mb-8">
           <div className="flex items-start gap-4">
             <AlertCircle className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
-            <div>
-              <h3 className="font-semibold text-blue-900 mb-2">How Webhooks Work</h3>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-blue-900">How Webhooks Work</h3>
+                <a
+                  href="/MonitHQ_Webhook_Integration_Guide.pdf"
+                  download
+                  className="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all shadow-md text-sm"
+                  title="Download Webhook Integration Guide"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" /></svg>
+                  Download Guide
+                </a>
+              </div>
               <p className="text-sm text-blue-800 mb-3">
                 Webhooks send POST requests to your specified URL when events occur. Each request includes event details in JSON format.
               </p>

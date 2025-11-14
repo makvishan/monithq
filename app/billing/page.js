@@ -14,7 +14,7 @@ import {
   AlertCircle,
   X
 } from 'lucide-react';
-import { formatAmount } from '@/lib/stripe';
+import { formatAmount } from '@/lib/utils';
 import Sidebar from '@/components/Sidebar';
 import MainContent from '@/components/MainContent';
 

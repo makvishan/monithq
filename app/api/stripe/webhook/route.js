@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { stripe, STRIPE_CONFIG, getPlanByPriceId, getPlanLimits } from '@/lib/stripe';
 import prisma from '@/lib/prisma';
 import { sendEmail } from '@/lib/resend';
+import { formatAmount } from '@/lib/utils';
+import { formatInterval } from '@/lib/utils';
 
 async function getRawBody(request) {
   const chunks = [];
@@ -136,17 +138,7 @@ async function handleCheckoutCompleted(session) {
       const user = organization.users[0];
       const planLimits = await getPlanLimits(metadata.plan);
       
-      const formatAmount = (amount, currency) => {
-        return new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: currency,
-        }).format(amount / 100);
-      };
 
-      const formatInterval = (seconds) => {
-        if (seconds < 60) return `${seconds} seconds`;
-        return `${Math.floor(seconds / 60)} minute${Math.floor(seconds / 60) > 1 ? 's' : ''}`;
-      };
 
       await sendEmail(user.email, 'subscriptionCreated', {
         userName: user.name,
@@ -231,17 +223,7 @@ async function handleSubscriptionUpdated(subscription) {
       const user = existingSubscription.organization.users[0];
       const planLimits = await getPlanLimits(newPlan);
       
-      const formatAmount = (amount, currency) => {
-        return new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: currency,
-        }).format(amount / 100);
-      };
 
-      const formatInterval = (seconds) => {
-        if (seconds < 60) return `${seconds} seconds`;
-        return `${Math.floor(seconds / 60)} minute${Math.floor(seconds / 60) > 1 ? 's' : ''}`;
-      };
 
       await sendEmail(user.email, 'planUpgraded', {
         userName: user.name,
@@ -251,7 +233,7 @@ async function handleSubscriptionUpdated(subscription) {
         checkInterval: formatInterval(planLimits.minCheckInterval),
         maxTeamMembers: planLimits.maxTeamMembers === 999999 ? 'Unlimited' : planLimits.maxTeamMembers,
         channels: planLimits.allowedChannels?.join(', ') || 'Email',
-        aiCredits: planLimits.maxAICredits === 999999 ? 'Unlimited' : planLimits.maxAICredits,
+        aiCredits: planLimits.maxAICredits === 999999 ? 'Unlimited' : formatAmount(planLimits.maxAICredits, 'USD'),
       });
 
       console.log('[Email] Plan upgrade email sent to:', user.email);
@@ -354,12 +336,6 @@ async function handleInvoicePaymentSucceeded(invoice) {
         try {
           const user = existingSubscription.organization.users[0];
           
-          const formatAmount = (amount, curr) => {
-            return new Intl.NumberFormat('en-US', {
-              style: 'currency',
-              currency: curr.toUpperCase(),
-            }).format(amount / 100);
-          };
 
           const startDate = new Date(period_start * 1000).toLocaleDateString();
           const endDate = new Date(period_end * 1000).toLocaleDateString();
@@ -417,12 +393,6 @@ async function handleInvoicePaymentFailed(invoice) {
         try {
           const user = existingSubscription.organization.users[0];
           
-          const formatAmount = (amount, curr) => {
-            return new Intl.NumberFormat('en-US', {
-              style: 'currency',
-              currency: curr.toUpperCase(),
-            }).format(amount / 100);
-          };
 
           await sendEmail(user.email, 'paymentFailed', {
             userName: user.name,
