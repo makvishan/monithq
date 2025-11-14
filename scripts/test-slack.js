@@ -1,7 +1,7 @@
 // Test script to send a message to Slack using your webhook URL
 import { sendSlackNotification } from "../lib/slack.js";
 
-const webhookUrl = "https://hooks.slack.com/services/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";
+const webhookUrl = "YOUR_SLACK_WEBHOOK_URL_HERE"; // Replace with your Slack webhook URL
 const testMessage = "This is a test message from MonitHQ Slack integration.";
 
 (async () => {
