@@ -53,6 +53,33 @@ enum SubscriptionStatus {
   TRIALING
 }
 
+enum SiteType {
+  WEB
+  API
+  PING
+}
+
+enum HttpMethod {
+  GET
+  POST
+  PUT
+  PATCH
+  DELETE
+  HEAD
+  OPTIONS
+}
+
+enum Region {
+  US_EAST        // North America - East (Virginia)
+  US_WEST        // North America - West (California)
+  EU_WEST        // Europe - West (Ireland)
+  EU_CENTRAL     // Europe - Central (Frankfurt)
+  ASIA_EAST      // Asia - East (Tokyo)
+  ASIA_SOUTHEAST // Asia - Southeast (Singapore)
+  AUSTRALIA      // Australia (Sydney)
+  SOUTH_AMERICA  // South America (São Paulo)
+}
+
 // Models
 model AppSettings {
   id                  String   @id @default("app_settings") // Single row
@@ -172,6 +199,20 @@ model Site {
   sslCertificateValid  Boolean   @default(true) // Current validity status
   sslAlertThreshold    Int       @default(30) // Days before expiry to alert
 
+  // Security Headers Monitoring (Current State)
+  securityScore         Int?      // Latest security score (0-100)
+  lastSecurityCheck     DateTime? // Last security check timestamp
+
+  // API Endpoint Monitoring
+  siteType           SiteType   @default(WEB)
+  httpMethod         HttpMethod @default(GET)
+  requestHeaders     Json?      // Custom headers {"Authorization": "Bearer xxx"}
+  requestBody        Json?      // Request payload for POST/PUT/PATCH
+  expectedStatus     Int[]      @default([200]) // Expected status codes
+  responseValidation Json?      // JSON schema or validation rules
+  authType           String?    // NONE, BEARER, API_KEY, BASIC
+  authValue          String?    // Encrypted auth value
+
   // Foreign Keys
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -182,6 +223,11 @@ model Site {
   incidents      Incident[]
   checks         SiteCheck[]
   sslChecks      SSLCheck[]  // Historical SSL checks
+  securityChecks SecurityCheck[] // Historical security checks
+  apiChecks      ApiCheck[] // Historical API checks
+  regionChecks   RegionCheck[] // Historical multi-region checks
+  dnsChecks      DnsCheck[] // Historical DNS checks
+  performanceChecks PerformanceCheck[] // Historical performance checks
   notifications  Notification[]
   subscribers    SiteSubscription[]
   aiInsights     AiInsight[]
@@ -457,4 +503,195 @@ model AiInsight {
 
   organization    Organization @relation(fields: [orgId], references: [id])
   site            Site?         @relation(fields: [siteId], references: [id])
+}
+
+model SecurityCheck {
+  id          String   @id @default(cuid())
+  siteId      String
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  // Security Headers
+  hasHSTS             Boolean  @default(false)
+  hstsMaxAge          Int?
+  hstsIncludesSubdomains Boolean @default(false)
+  hasCSP              Boolean  @default(false)
+  cspPolicy           String?  @db.Text
+  hasXFrameOptions    Boolean  @default(false)
+  xFrameOptions       String?
+  hasXContentType     Boolean  @default(false)
+  hasXXSSProtection   Boolean  @default(false)
+  hasReferrerPolicy   Boolean  @default(false)
+  referrerPolicy      String?
+  hasPermissionsPolicy Boolean @default(false)
+
+  // Security Score
+  securityScore       Int      @default(0) // 0-100
+  grade               String?  // A+, A, B, C, D, F
+  issues              Json?    // Array of security issues found
+  recommendations     Json?    // Array of recommendations
+
+  checkedAt           DateTime @default(now())
+
+  @@index([siteId])
+  @@index([checkedAt])
+  @@index([securityScore])
+}
+
+model ApiCheck {
+  id              String   @id @default(cuid())
+  siteId          String
+  site            Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  requestMethod   HttpMethod
+  requestHeaders  Json?
+  requestBody     Json?
+  responseTime    Int      // ms
+  statusCode      Int
+  responseBody    Json?    // Store sample response (truncated if large)
+  responseHeaders Json?
+  validationPassed Boolean  @default(true)
+  validationErrors Json?   // Array of validation errors
+  errorMessage    String?
+
+  checkedAt       DateTime @default(now())
+
+  @@index([siteId])
+  @@index([checkedAt])
+  @@index([statusCode])
+  @@index([validationPassed])
+}
+
+model RegionCheck {
+  id              String     @id @default(cuid())
+  siteId          String
+  site            Site       @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  region          Region     // Geographic region where check was performed
+  status          SiteStatus // ONLINE, OFFLINE, DEGRADED
+  responseTime    Int        // Milliseconds
+  statusCode      Int?       // HTTP status code
+  errorMessage    String?    // Error details if check failed
+  resolvedIp      String?    // Resolved IP address
+  dnsLookupTime   Int?       // DNS resolution time in ms
+  connectTime     Int?       // TCP connection time in ms
+  tlsHandshakeTime Int?      // TLS handshake time in ms (for HTTPS)
+
+  checkedAt       DateTime   @default(now())
+
+  @@index([siteId])
+  @@index([region])
+  @@index([checkedAt])
+  @@index([status])
+}
+
+model DnsCheck {
+  id              String   @id @default(cuid())
+  siteId          String
+  site            Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  // DNS Resolution
+  hostname        String   // Domain being checked
+  resolutionTime  Int      // DNS lookup time in ms
+
+  // A Records (IPv4)
+  aRecords        Json?    // Array of IPv4 addresses
+
+  // AAAA Records (IPv6)
+  aaaaRecords     Json?    // Array of IPv6 addresses
+
+  // CNAME Records
+  cnameRecords    Json?    // Array of CNAME targets
+
+  // MX Records (Mail servers)
+  mxRecords       Json?    // Array of MX records with priority
+
+  // NS Records (Nameservers)
+  nsRecords       Json?    // Array of nameserver hostnames
+
+  // TXT Records
+  txtRecords      Json?    // Array of TXT record values
+
+  // SOA Record (Start of Authority)
+  soaRecord       Json?    // SOA record details
+
+  // Nameserver Info
+  nameservers     Json?    // Array of authoritative nameservers
+
+  // Change Detection
+  recordsHash     String?  // Hash of all records for change detection
+  changesDetected Boolean  @default(false)
+  previousHash    String?  // Previous hash for comparison
+
+  // Status
+  success         Boolean  @default(true)
+  errorMessage    String?
+
+  checkedAt       DateTime @default(now())
+
+  @@index([siteId])
+  @@index([hostname])
+  @@index([checkedAt])
+  @@index([changesDetected])
+}
+
+/**
+ * Performance Monitoring
+ *
+ * Tracks detailed performance metrics including:
+ * - Time to First Byte (TTFB)
+ * - Page load times
+ * - Resource loading metrics
+ * - Core Web Vitals
+ */
+model PerformanceCheck {
+  id              String   @id @default(cuid())
+  siteId          String
+  site            Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  // Overall Timing
+  totalTime       Int      // Total request time in ms
+
+  // Detailed Timing Breakdown
+  dnsTime         Int?     // DNS lookup time in ms
+  tcpTime         Int?     // TCP connection time in ms
+  tlsTime         Int?     // TLS handshake time in ms
+  ttfb            Int?     // Time to First Byte in ms
+  downloadTime    Int?     // Content download time in ms
+
+  // Response Metrics
+  responseSize    Int?     // Response size in bytes
+  transferSpeed   Float?   // Transfer speed in KB/s
+  compression     Boolean  @default(false) // Whether response was compressed
+
+  // HTTP Metrics
+  statusCode      Int?
+  redirectCount   Int      @default(0)
+  redirectTime    Int?     // Time spent in redirects in ms
+
+  // Core Web Vitals Simulation
+  estimatedFCP    Int?     // Estimated First Contentful Paint in ms
+  estimatedLCP    Int?     // Estimated Largest Contentful Paint in ms
+
+  // Resource Analysis
+  resourceCount   Int?     // Number of resources detected (from HTML parsing)
+  resourceSizes   Json?    // Breakdown of resource sizes by type
+
+  // Performance Score
+  performanceScore Int?    // Overall performance score (0-100)
+  grade           String?  // Performance grade (A, B, C, D, F)
+
+  // Performance Issues
+  issues          Json?    // Array of detected performance issues
+  recommendations Json?    // Array of performance recommendations
+
+  // Status
+  success         Boolean  @default(true)
+  errorMessage    String?
+
+  checkedAt       DateTime @default(now())
+
+  @@index([siteId])
+  @@index([checkedAt])
+  @@index([performanceScore])
+  @@index([grade])
 }

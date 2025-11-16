@@ -1,0 +1,32 @@
+name = "monithq-region-monitor"
+main = "region-monitor.js"
+compatibility_date = "2024-01-01"
+workers_dev = true
+
+# Production route (update with your domain)
+# routes = [
+#   { pattern = "monitor.monithq.com/*", zone_name = "monithq.com" }
+# ]
+
+# Environment variables (secrets)
+# Set these using: wrangler secret put MONITHQ_API_SECRET
+[vars]
+# Public variables (non-sensitive)
+# ENVIRONMENT = "production"
+
+# KV Namespaces (optional - for caching)
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "your-kv-namespace-id"
+
+# Durable Objects (optional - for stateful monitoring)
+# [[durable_objects.bindings]]
+# name = "MONITOR_STATE"
+# class_name = "MonitorState"
+
+# Usage model
+# usage_model = "bundled" # or "unbound" for longer execution times
+
+# Limits
+[limits]
+cpu_ms = 50  # Max CPU time in milliseconds

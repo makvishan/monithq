@@ -5,18 +5,26 @@ import Sidebar from '@/components/Sidebar';
 import MainContent from '@/components/MainContent';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Webhook, Plus, Trash2, Copy, Check, Power, Edit2, AlertCircle, Shield } from 'lucide-react';
+import { WEBHOOK_EVENTS, WEBHOOK_EVENT_DISPLAY_NAMES } from '@/lib/constants';
 import showToast from '@/lib/toast';
 
-const AVAILABLE_EVENTS = [
-  { value: 'incident_created', label: 'Incident Created', description: 'When a new incident is detected' },
-  { value: 'incident_updated', label: 'Incident Updated', description: 'When an incident status changes' },
-  { value: 'incident_resolved', label: 'Incident Resolved', description: 'When an incident is resolved' },
-  { value: 'site_down', label: 'Site Down', description: 'When a site goes offline' },
-  { value: 'site_up', label: 'Site Up', description: 'When a site comes back online' },
-  { value: 'site_degraded', label: 'Site Degraded', description: 'When a site performance degrades' },
-  { value: 'site_created', label: 'Site Created', description: 'When a new site is added' },
-  { value: 'site_deleted', label: 'Site Deleted', description: 'When a site is removed' },
-];
+// Map webhook events to their descriptions
+const WEBHOOK_EVENT_DESCRIPTIONS = {
+  [WEBHOOK_EVENTS.INCIDENT_CREATED]: 'When a new incident is detected',
+  [WEBHOOK_EVENTS.INCIDENT_UPDATED]: 'When an incident status changes',
+  [WEBHOOK_EVENTS.INCIDENT_RESOLVED]: 'When an incident is resolved',
+  [WEBHOOK_EVENTS.SITE_DOWN]: 'When a site goes offline',
+  [WEBHOOK_EVENTS.SITE_UP]: 'When a site comes back online',
+  [WEBHOOK_EVENTS.SITE_DEGRADED]: 'When a site performance degrades',
+  [WEBHOOK_EVENTS.SITE_CREATED]: 'When a new site is added',
+  [WEBHOOK_EVENTS.SITE_DELETED]: 'When a site is removed',
+};
+
+const AVAILABLE_EVENTS = Object.values(WEBHOOK_EVENTS).map((value) => ({
+  value,
+  label: WEBHOOK_EVENT_DISPLAY_NAMES[value],
+  description: WEBHOOK_EVENT_DESCRIPTIONS[value],
+}));
 
 export default function WebhooksPage() {
   const [webhooks, setWebhooks] = useState([]);
@@ -197,15 +205,6 @@ export default function WebhooksPage() {
             <div className="flex-1">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-blue-900">How Webhooks Work</h3>
-                <a
-                  href="/assets/docs/MonitHQ_Webhook_Integration_Guide.pdf"
-                  download
-                  className="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all shadow-md text-sm"
-                  title="Download Webhook Integration Guide"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" /></svg>
-                  Download Guide
-                </a>
               </div>
               <p className="text-sm text-blue-800 mb-3">
                 Webhooks send POST requests to your specified URL when events occur. Each request includes event details in JSON format.
@@ -224,6 +223,18 @@ export default function WebhooksPage() {
 }`}
                 </pre>
               </div>
+              <br></br>
+              <p className="text-xs text-muted-foreground">
+                Refer here for more details on setting up and securing your &nbsp;
+                <a
+                  href="/assets/docs/MonitHQ_Webhook_Integration_Guide.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                   Webhook Setup
+                </a>
+              </p>
             </div>
           </div>
         </div>

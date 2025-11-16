@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Activity, Clock, CheckCircle, XCircle, AlertCircle, AlertTriangle } from 'lucide-react';
+import { INCIDENT_SEVERITY, INCIDENT_SEVERITY_BG_CLASSES, INCIDENT_SEVERITY_DISPLAY_NAMES } from '@/lib/constants';
 
 export default function PublicStatusPage({ params }) {
   const [data, setData] = useState(null);
@@ -256,13 +257,8 @@ export default function PublicStatusPage({ params }) {
                         <span className={`px-2 py-1 text-xs font-medium rounded ${getIncidentStatusColor(incident.status)}`}>
                           {incident.status.replace('_', ' ')}
                         </span>
-                        <span className={`px-2 py-1 text-xs font-medium rounded ${
-                          incident.severity === 'CRITICAL' ? 'bg-red-100 text-red-700' :
-                          incident.severity === 'HIGH' ? 'bg-orange-100 text-orange-700' :
-                          incident.severity === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-blue-100 text-blue-700'
-                        }`}>
-                          {incident.severity}
+                        <span className={`px-2 py-1 text-xs font-medium rounded ${INCIDENT_SEVERITY_BG_CLASSES[incident.severity] || INCIDENT_SEVERITY_BG_CLASSES[INCIDENT_SEVERITY.LOW]}`}>
+                          {INCIDENT_SEVERITY_DISPLAY_NAMES[incident.severity] || incident.severity}
                         </span>
                       </div>
                       

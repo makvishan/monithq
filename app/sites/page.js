@@ -10,6 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/Card';
 import SiteEditModal from '@/components/SiteEditModal';
 import { sitesAPI } from '@/lib/api';
 import { getStatusBadge, formatUptime, formatResponseTime, formatRelativeTime } from '@/lib/utils';
+import { SITE_STATUS, STATUS_EMOJIS, STATUS_BG_CLASSES, STATUS_FILTERS, STATUS_DISPLAY_NAMES } from '@/lib/constants';
 import showToast from '@/lib/toast';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Plus, Search, Filter, Download, ExternalLink, Edit, Trash2, X, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
@@ -132,13 +133,12 @@ export default function SitesPage() {
       
       if (response.ok) {
         // Update the site in the list with new data
-        setSites(prevSites => 
+        setSites(prevSites =>
           prevSites.map(s => s.id === site.id ? data.site : s)
         );
-        
-        const statusEmoji = data.check.status === 'ONLINE' ? '✅' : 
-                           data.check.status === 'DEGRADED' ? '⚠️' : '❌';
-        
+
+        const statusEmoji = STATUS_EMOJIS[data.check.status] || STATUS_EMOJIS[SITE_STATUS.UNKNOWN];
+
         showToast.success(
           `${statusEmoji} ${site.name}: ${data.check.status} (${data.check.latency}ms)`
         );
@@ -213,7 +213,7 @@ export default function SitesPage() {
             />
           </div>
           <div className="flex gap-2">
-            {['all', 'ONLINE', 'OFFLINE', 'DEGRADED', 'MAINTENANCE'].map((status) => (
+            {STATUS_FILTERS.map((status) => (
               <button
                 key={status}
                 onClick={() => handleStatusFilterChange(status)}
@@ -223,7 +223,7 @@ export default function SitesPage() {
                     : 'bg-card border border-border text-foreground hover:bg-muted'
                 }`}
               >
-                {status === 'all' ? 'All' : status.charAt(0) + status.slice(1).toLowerCase()}
+                {status === 'all' ? 'All' : STATUS_DISPLAY_NAMES[status] || status}
               </button>
             ))}
           </div>
@@ -274,6 +274,7 @@ export default function SitesPage() {
                         <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">URL</th>
                         <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">Uptime</th>
                         <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">Latency</th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">Security</th>
                         <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">Last Check</th>
                         <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">Region</th>
                         <th className="px-6 py-4 text-right text-sm font-semibold text-foreground">Actions</th>
@@ -282,7 +283,7 @@ export default function SitesPage() {
                     <tbody className="divide-y divide-border">
                       {sites.length === 0 ? (
                         <tr>
-                          <td colSpan="8" className="px-6 py-12 text-center text-muted-foreground">
+                          <td colSpan="9" className="px-6 py-12 text-center text-muted-foreground">
                             {searchTerm || statusFilter !== 'all' 
                               ? 'No sites found matching your filters.'
                               : 'No sites found. Add your first site to get started!'}
@@ -300,20 +301,15 @@ export default function SitesPage() {
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-2">
                                 <span className={`w-2 h-2 rounded-full ${getStatusBadge(site.status)}`}></span>
-                                <span className={`px-2 py-1 rounded text-xs font-medium capitalize ${
-                                  site.status === 'ONLINE' ? 'bg-green-500/10 text-green-500' :
-                                  site.status === 'DEGRADED' ? 'bg-yellow-500/10 text-yellow-500' :
-                                  site.status === 'MAINTENANCE' ? 'bg-blue-500/10 text-blue-500' :
-                                  'bg-red-500/10 text-red-500'
-                                }`}>
-                                  {site.status.toLowerCase()}
+                                <span className={`px-2 py-1 rounded text-xs font-medium capitalize ${STATUS_BG_CLASSES[site.status] || STATUS_BG_CLASSES[SITE_STATUS.UNKNOWN]}`}>
+                                  {STATUS_DISPLAY_NAMES[site.status]?.toLowerCase() || site.status.toLowerCase()}
                                 </span>
                               </div>
                             </td>
                             <td className="px-6 py-4">
                               <button
                                 onClick={() => router.push(`/sites/${site.id}`)}
-                                className="font-medium text-foreground hover:text-primary transition-colors text-left"
+                                className="font-medium text-foreground hover:text-primary transition-colors text-left cursor-pointer"
                               >
                                 {site.name}
                               </button>
@@ -338,6 +334,22 @@ export default function SitesPage() {
                               <span className="text-sm text-muted-foreground">
                                 {site.averageLatency ? formatResponseTime(site.averageLatency) : 'N/A'}
                               </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              {site.securityScore !== null && site.securityScore !== undefined ? (
+                                <div className="flex items-center gap-2">
+                                  <div className={`px-2 py-1 rounded text-xs font-medium ${
+                                    site.securityScore >= 85 ? 'bg-green-500/10 text-green-500' :
+                                    site.securityScore >= 70 ? 'bg-blue-500/10 text-blue-500' :
+                                    site.securityScore >= 50 ? 'bg-yellow-500/10 text-yellow-500' :
+                                    'bg-red-500/10 text-red-500'
+                                  }`}>
+                                    {site.securityScore}/100
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Not checked</span>
+                              )}
                             </td>
                             <td className="px-6 py-4">
                               <span className="text-sm text-muted-foreground">

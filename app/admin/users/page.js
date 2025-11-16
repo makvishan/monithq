@@ -6,6 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import MainContent from '@/components/MainContent';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/Card';
 import { adminAPI } from '@/lib/api';
+import { USER_ROLES } from '@/lib/constants';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { 
   Users, 
@@ -62,9 +63,9 @@ export default function AdminUsersPage() {
 
   const stats = {
     total: users.length,
-    users: users.filter(u => u.role === 'USER').length,
-    orgAdmins: users.filter(u => u.role === 'ORG_ADMIN').length,
-    superAdmins: users.filter(u => u.role === 'SUPER_ADMIN').length,
+    users: users.filter(u => u.role === USER_ROLES.USER).length,
+    orgAdmins: users.filter(u => u.role === USER_ROLES.ORG_ADMIN).length,
+    superAdmins: users.filter(u => u.role === USER_ROLES.SUPER_ADMIN).length,
   };
 
   const handleSuspend = (userId) => {
@@ -288,11 +289,11 @@ export default function AdminUsersPage() {
                               </td>
                               <td className="px-6 py-4">
                                 <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
-                                  user.role === 'SUPER_ADMIN' ? 'bg-red-500/10 text-red-500' :
-                                  user.role === 'ORG_ADMIN' ? 'bg-purple-500/10 text-purple-500' :
+                                  user.role === USER_ROLES.SUPER_ADMIN ? 'bg-red-500/10 text-red-500' :
+                                  user.role === USER_ROLES.ORG_ADMIN ? 'bg-purple-500/10 text-purple-500' :
                                   'bg-blue-500/10 text-blue-500'
                                 }`}>
-                                  {user.role === 'SUPER_ADMIN' || user.role === 'ORG_ADMIN' ? <Shield className="w-3 h-3" /> : null}
+                                  {user.role === USER_ROLES.SUPER_ADMIN || user.role === USER_ROLES.ORG_ADMIN ? <Shield className="w-3 h-3" /> : null}
                                   {user.role.replace('_', ' ')}
                                 </span>
                               </td>

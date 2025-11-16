@@ -6,18 +6,19 @@ import { requireAuth, checkOrganizationAccess, createAuditLog } from '@/lib/api-
 export async function PUT(request, { params }) {
   try {
     const user = await requireAuth(request);
-    
+
     if (user instanceof NextResponse) {
       return user;
     }
 
-    const { id } = params;
+    // Await params in Next.js 15+
+    const { id } = await params;
     const body = await request.json();
     const { name, url, events, isActive } = body;
 
     // Get webhook to check ownership
     const webhook = await prisma.webhook.findUnique({
-      where: { id },
+      where: { id: id },
     });
 
     if (!webhook) {
@@ -64,12 +65,13 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const user = await requireAuth(request);
-    
+
     if (user instanceof NextResponse) {
       return user;
     }
 
-    const { id } = params;
+    // Await params in Next.js 15+
+    const { id } = await params;
 
     // Get webhook to check ownership
     const webhook = await prisma.webhook.findUnique({

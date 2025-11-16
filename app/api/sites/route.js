@@ -69,6 +69,12 @@ export async function GET(request) {
         sslExpiryDate: true,
         sslDaysRemaining: true,
         sslCertificateValid: true,
+        // Security monitoring fields
+        securityScore: true,
+        lastSecurityCheck: true,
+        // API monitoring fields
+        siteType: true,
+        httpMethod: true,
         organization: {
           select: {
             id: true,
@@ -142,7 +148,23 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { name, url, checkInterval, region, sslMonitoringEnabled, sslAlertThreshold } = body;
+    const {
+      name,
+      url,
+      checkInterval,
+      region,
+      sslMonitoringEnabled,
+      sslAlertThreshold,
+      // API monitoring fields
+      siteType,
+      httpMethod,
+      requestHeaders,
+      requestBody,
+      expectedStatus,
+      authType,
+      authValue,
+      responseValidation,
+    } = body;
 
     // Validation
     if (!name || !url) {
@@ -223,6 +245,17 @@ export async function POST(request) {
         ...(url.startsWith('https://') && {
           sslMonitoringEnabled: sslMonitoringEnabled ?? true,
           sslAlertThreshold: sslAlertThreshold || 30,
+        }),
+        // API Monitoring settings
+        siteType: siteType || 'WEB',
+        ...(siteType === 'API' && {
+          httpMethod: httpMethod || 'GET',
+          requestHeaders: requestHeaders || {},
+          requestBody: requestBody || null,
+          expectedStatus: expectedStatus || [200],
+          authType: authType || 'NONE',
+          authValue: authValue || null,
+          responseValidation: responseValidation || null,
         }),
       },
       include: {

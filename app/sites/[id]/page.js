@@ -25,13 +25,18 @@ import MainContent from '@/components/MainContent';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/Card';
 import SiteEditModal from '@/components/SiteEditModal';
 import SSLCertificateCard from '@/components/SSLCertificateCard';
+import SecurityScoreCard from '@/components/SecurityScoreCard';
+import RegionMapCard from '@/components/RegionMapCard';
+import DnsMonitorCard from '@/components/DnsMonitorCard';
+import PerformanceMonitorCard from '@/components/PerformanceMonitorCard';
 import { useSnackbar } from '@/components/ui/SnackbarProvider';
-import { 
-  ArrowLeft, 
-  ExternalLink, 
-  RefreshCw, 
-  Edit, 
-  Trash2, 
+import { INCIDENT_SEVERITY, INCIDENT_SEVERITY_BG_CLASSES, INCIDENT_STATUS } from '@/lib/constants';
+import {
+  ArrowLeft,
+  ExternalLink,
+  RefreshCw,
+  Edit,
+  Trash2,
   Power,
   Clock,
   Activity,
@@ -43,6 +48,7 @@ import {
   Download,
   Settings,
   BarChart3,
+  Shield,
   X
 } from 'lucide-react';
 
@@ -68,6 +74,7 @@ export default function SiteDetailPage() {
   const [checking, setChecking] = useState(false);
   const [timeRange, setTimeRange] = useState('24h'); // 24h, 7d, 30d
   const [showEditModal, setShowEditModal] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview'); // overview, monitoring, analytics, history
 
 
   // Move all fetch* useCallback definitions above fetchAllData
@@ -369,8 +376,40 @@ export default function SiteDetailPage() {
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {/* Tab Navigation */}
+        <div className="mb-8 border-b border-border">
+          <nav className="flex space-x-8 overflow-x-auto">
+            {[
+              { id: 'overview', label: 'Overview', icon: Activity },
+              { id: 'monitoring', label: 'Advanced Monitoring', icon: Shield },
+              { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+              { id: 'history', label: 'History & Incidents', icon: Clock },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+                    isActive
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -448,29 +487,378 @@ export default function SiteDetailPage() {
           </motion.div>
         </div>
 
-        {/* SSL Certificate Card */}
-        {site && site.url && site.url.startsWith('https://') && (
+        {/* Quick Health Status Overview */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.4 }}
+          className="mb-8"
+        >
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary" />
+                Quick Health Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Main Status */}
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                    summary?.lastCheck?.status === 'up'
+                      ? 'bg-green-100 text-green-600'
+                      : summary?.lastCheck?.status === 'down'
+                      ? 'bg-red-100 text-red-600'
+                      : 'bg-yellow-100 text-yellow-600'
+                  }`}>
+                    {summary?.lastCheck?.status === 'up' ? (
+                      <CheckCircle className="w-6 h-6" />
+                    ) : summary?.lastCheck?.status === 'down' ? (
+                      <XCircle className="w-6 h-6" />
+                    ) : (
+                      <AlertTriangle className="w-6 h-6" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Site Status</p>
+                    <p className="font-semibold text-sm capitalize">
+                      {summary?.lastCheck?.status || 'Unknown'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* SSL Status */}
+                {site?.url?.startsWith('https://') && (
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                      summary?.sslCert?.daysRemaining > 30
+                        ? 'bg-green-100 text-green-600'
+                        : summary?.sslCert?.daysRemaining > 7
+                        ? 'bg-yellow-100 text-yellow-600'
+                        : 'bg-red-100 text-red-600'
+                    }`}>
+                      🔒
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">SSL Certificate</p>
+                      <p className="font-semibold text-sm">
+                        {summary?.sslCert?.daysRemaining
+                          ? `${summary.sslCert.daysRemaining} days left`
+                          : 'Valid'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Response Performance */}
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                    (summary?.lastCheck?.responseTime || 0) < 500
+                      ? 'bg-green-100 text-green-600'
+                      : (summary?.lastCheck?.responseTime || 0) < 1000
+                      ? 'bg-yellow-100 text-yellow-600'
+                      : 'bg-red-100 text-red-600'
+                  }`}>
+                    ⚡
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Performance</p>
+                    <p className="font-semibold text-sm">
+                      {(summary?.lastCheck?.responseTime || 0) < 500
+                        ? 'Excellent'
+                        : (summary?.lastCheck?.responseTime || 0) < 1000
+                        ? 'Good'
+                        : 'Needs Attention'
+                      }
+                    </p>
+                  </div>
+                </div>
+
+                {/* Incident Status */}
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                    (summary?.activeIncidents || 0) === 0
+                      ? 'bg-green-100 text-green-600'
+                      : 'bg-red-100 text-red-600'
+                  }`}>
+                    {(summary?.activeIncidents || 0) === 0 ? (
+                      <CheckCircle className="w-6 h-6" />
+                    ) : (
+                      <AlertTriangle className="w-6 h-6" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Incidents</p>
+                    <p className="font-semibold text-sm">
+                      {(summary?.activeIncidents || 0) === 0
+                        ? 'No Active Issues'
+                        : `${summary.activeIncidents} Active`
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Recent Activity Timeline */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.5 }}
+          className="mb-8"
+        >
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-5 h-5 text-primary" />
+                Recent Activity (Last 10 Checks)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {checks && checks.length > 0 ? (
+                <div className="space-y-2">
+                  {checks.slice(0, 10).map((check, index) => (
+                    <div
+                      key={check.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                    >
+                      <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                        check.status === 'up'
+                          ? 'bg-green-500'
+                          : check.status === 'down'
+                          ? 'bg-red-500'
+                          : 'bg-yellow-500'
+                      }`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium capitalize">{check.status}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(check.checkedAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 mt-1">
+                          <span className="text-xs text-muted-foreground">
+                            Response: <span className="font-medium">{check.responseTime}ms</span>
+                          </span>
+                          {check.statusCode && (
+                            <span className="text-xs text-muted-foreground">
+                              Status: <span className="font-medium">{check.statusCode}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Activity className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>No recent checks available</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Active Incidents Widget */}
+        {incidents && incidents.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.6 }}
+            className="mb-8"
+          >
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-orange-500" />
+                    Recent Incidents
+                  </CardTitle>
+                  <button
+                    onClick={() => setActiveTab('history')}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    View All
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {incidents.slice(0, 5).map((incident) => (
+                    <div
+                      key={incident.id}
+                      className="p-4 rounded-lg border border-border bg-muted/30"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              INCIDENT_SEVERITY_BG_CLASSES[incident.severity] || 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {incident.severity}
+                            </span>
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              incident.status === 'resolved'
+                                ? 'bg-green-100 text-green-800'
+                                : incident.status === 'acknowledged'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {incident.status}
+                            </span>
+                          </div>
+                          <p className="text-sm font-medium text-foreground">
+                            {incident.title || 'Site Down'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {incident.description || 'No description available'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>Started: {new Date(incident.startedAt).toLocaleString()}</span>
+                        {incident.resolvedAt && (
+                          <span>Resolved: {new Date(incident.resolvedAt).toLocaleString()}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* AI Insights Widget */}
+        {summary?.latestAIInsight && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.7 }}
+            className="mb-8"
+          >
+            <Card className="glow-ai">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <span className="text-2xl">🤖</span>
+                  Latest AI Insight
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="p-4 rounded-lg bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20">
+                  <p className="text-sm text-foreground whitespace-pre-wrap">
+                    {summary.latestAIInsight.content || summary.latestAIInsight}
+                  </p>
+                  {summary.latestAIInsight.createdAt && (
+                    <p className="text-xs text-muted-foreground mt-3">
+                      Generated: {new Date(summary.latestAIInsight.createdAt).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+          </>
+        )}
+
+        {/* Advanced Monitoring Tab */}
+        {activeTab === 'monitoring' && (
+          <>
+            {/* SSL Certificate Card & Security Score */}
+            {site && site.url && site.url.startsWith('https://') && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.4 }}
+            >
+              <SSLCertificateCard
+                site={{
+                  ...site,
+                  ...summary
+                }}
+                onRefresh={fetchAllData}
+              />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.45 }}
+            >
+              <SecurityScoreCard
+                siteId={site.id}
+                initialScore={summary?.securityScore}
+                initialGrade={summary?.securityGrade}
+                lastChecked={summary?.lastSecurityCheck}
+              />
+            </motion.div>
+          </div>
+        )}
+
+        {/* Security Score for non-HTTPS sites */}
+        {site && site.url && !site.url.startsWith('https://') && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.4 }}
             className="mb-8"
           >
-            <SSLCertificateCard
-              site={{
-                ...site,
-                ...summary
-              }}
-              onRefresh={fetchAllData}
+            <SecurityScoreCard
+              siteId={site.id}
+              initialScore={summary?.securityScore}
+              initialGrade={summary?.securityGrade}
+              lastChecked={summary?.lastSecurityCheck}
             />
           </motion.div>
         )}
 
-        {/* Uptime Statistics */}
+        {/* Multi-Region Monitoring */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.5 }}
+          className="mb-8"
+        >
+          <RegionMapCard siteId={site?.id} />
+        </motion.div>
+
+        {/* DNS Monitoring */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.55 }}
+          className="mb-8"
+        >
+          <DnsMonitorCard siteId={site?.id} />
+        </motion.div>
+
+            {/* Performance Monitoring */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="mb-8"
+            >
+              <PerformanceMonitorCard siteId={site?.id} />
+            </motion.div>
+          </>
+        )}
+
+        {/* Analytics Tab */}
+        {activeTab === 'analytics' && (
+          <>
+            {/* Uptime Statistics */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.6 }}
           className="mb-8"
         >
           <Card>
@@ -888,16 +1276,21 @@ export default function SiteDetailPage() {
             </CardContent>
           </Card>
         </motion.div>
+          </>
+        )}
 
-        {/* Recent Incidents */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 1.0 }}
-        >
-          <Card className=" glow-danger">
-            <CardHeader>
-              <CardTitle>Recent Incidents</CardTitle>
+        {/* History & Incidents Tab */}
+        {activeTab === 'history' && (
+          <>
+            {/* Recent Incidents */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Card className="glow-danger">
+                <CardHeader>
+                  <CardTitle>Incidents History</CardTitle>
             </CardHeader>
             <CardContent>
               {incidents.length > 0 ? (
@@ -906,16 +1299,11 @@ export default function SiteDetailPage() {
                     <div key={incident.id} className="border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            incident.severity === 'CRITICAL' ? 'bg-red-500/10 text-red-500' :
-                            incident.severity === 'HIGH' ? 'bg-orange-500/10 text-orange-500' :
-                            incident.severity === 'MEDIUM' ? 'bg-yellow-500/10 text-yellow-500' :
-                            'bg-blue-500/10 text-blue-500'
-                          }`}>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${INCIDENT_SEVERITY_BG_CLASSES[incident.severity] || INCIDENT_SEVERITY_BG_CLASSES[INCIDENT_SEVERITY.LOW]}`}>
                             {incident.severity}
                           </span>
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            incident.status === 'RESOLVED' ? 'bg-green-500/10 text-green-500' :
+                            incident.status === INCIDENT_STATUS.RESOLVED ? 'bg-green-500/10 text-green-500' :
                             'bg-orange-500/10 text-orange-500'
                           }`}>
                             {incident.status}
@@ -944,6 +1332,8 @@ export default function SiteDetailPage() {
             </CardContent>
           </Card>
         </motion.div>
+          </>
+        )}
       </MainContent>
 
       {/* Edit Site Modal */}

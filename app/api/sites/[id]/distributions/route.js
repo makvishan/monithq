@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuth, checkOrganizationAccess } from '@/lib/api-middleware';
+import { RESPONSE_TIME_RANGES } from '@/lib/constants';
 
 // GET /api/sites/[id]/distributions - Get status and response time distributions
 export async function GET(request, { params }) {
@@ -60,22 +61,22 @@ export async function GET(request, { params }) {
 
     // Calculate response time distribution (buckets)
     const responseTimeBuckets = {
-      'Fast (< 100ms)': 0,
-      'Normal (100-300ms)': 0,
-      'Slow (300-1000ms)': 0,
-      'Very Slow (> 1000ms)': 0,
+      [RESPONSE_TIME_RANGES.FAST.label]: 0,
+      [RESPONSE_TIME_RANGES.NORMAL.label]: 0,
+      [RESPONSE_TIME_RANGES.SLOW.label]: 0,
+      [RESPONSE_TIME_RANGES.VERY_SLOW.label]: 0,
     };
 
     checks.forEach(check => {
       const rt = check.responseTime;
-      if (rt < 100) {
-        responseTimeBuckets['Fast (< 100ms)']++;
-      } else if (rt < 300) {
-        responseTimeBuckets['Normal (100-300ms)']++;
-      } else if (rt < 1000) {
-        responseTimeBuckets['Slow (300-1000ms)']++;
+      if (rt < RESPONSE_TIME_RANGES.FAST.max) {
+        responseTimeBuckets[RESPONSE_TIME_RANGES.FAST.label]++;
+      } else if (rt < RESPONSE_TIME_RANGES.NORMAL.max) {
+        responseTimeBuckets[RESPONSE_TIME_RANGES.NORMAL.label]++;
+      } else if (rt < RESPONSE_TIME_RANGES.SLOW.max) {
+        responseTimeBuckets[RESPONSE_TIME_RANGES.SLOW.label]++;
       } else {
-        responseTimeBuckets['Very Slow (> 1000ms)']++;
+        responseTimeBuckets[RESPONSE_TIME_RANGES.VERY_SLOW.label]++;
       }
     });
 

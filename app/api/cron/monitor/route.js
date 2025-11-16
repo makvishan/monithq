@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma';
 import fetch from 'node-fetch';
 import { notifyIncidentCreated, notifySiteStatusChanged } from '@/lib/pusher-server';
 import { notifyTeamOfIncident, notifyTeamOfResolution, sendSSLExpiryNotification } from '@/lib/notify';
-import { SITE_STATUS, INCIDENT_STATUS } from '@/lib/constants';
+import { SITE_STATUS, INCIDENT_STATUS, INCIDENT_SEVERITY, TIMEOUTS, PERFORMANCE_THRESHOLDS } from '@/lib/constants';
 import { checkSSLCertificate, shouldSendSSLAlert } from '@/lib/ssl';
 
 // Verify cron secret to prevent unauthorized access
@@ -25,7 +25,7 @@ const checkSite = async (site) => {
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const timeout = setTimeout(() => controller.abort(), TIMEOUTS.HEALTH_CHECK);
 
     const response = await fetch(site.url, {
       method: 'HEAD',
@@ -41,7 +41,7 @@ const checkSite = async (site) => {
     if (!response.ok) {
       status = SITE_STATUS.OFFLINE;
       error = `HTTP ${response.status} ${response.statusText}`;
-    } else if (latency > 5000) {
+    } else if (latency > PERFORMANCE_THRESHOLDS.DEGRADED_LATENCY) {
       status = SITE_STATUS.DEGRADED;
     }
   } catch (err) {
@@ -132,7 +132,7 @@ const updateSiteStatus = async (site, newStatus, latency, error = null) => {
       data: {
         siteId: site.id,
         status: INCIDENT_STATUS.INVESTIGATING,
-        severity: newStatus === SITE_STATUS.OFFLINE ? 'HIGH' : 'MEDIUM',
+        severity: newStatus === SITE_STATUS.OFFLINE ? INCIDENT_SEVERITY.HIGH : INCIDENT_SEVERITY.MEDIUM,
         startTime: now,
         aiSummary: `Automated detection: ${site.name} is ${newStatus.toLowerCase()}. Response time: ${latency}ms.${error ? ' Error: ' + error : ''}`,
       },

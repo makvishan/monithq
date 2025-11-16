@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '@/components/Sidebar';
 import MainContent from '@/components/MainContent';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/Card';
-import { NOTIFICATION_CHANNELS } from '@/lib/constants';
+import { NOTIFICATION_CHANNELS, USER_ROLES } from '@/lib/constants';
 import { formatRelativeTime } from '@/lib/utils';
 import { Save, Trash2, User, Lock, CheckCircle, Loader2, Bell, ArrowRight, AlertTriangle, Shield } from 'lucide-react';
 import Link from 'next/link';
@@ -104,7 +104,7 @@ export default function SettingsPage() {
         }
       }
       // Load organization alert settings (for ORG_ADMIN and SUPER_ADMIN)
-      if (userData?.role === 'ORG_ADMIN' || userData?.role === 'SUPER_ADMIN') {
+      if (userData?.role === USER_ROLES.ORG_ADMIN || userData?.role === USER_ROLES.SUPER_ADMIN) {
         const orgResponse = await fetch('/api/organization/settings', {
           credentials: 'include',
         });
@@ -118,7 +118,7 @@ export default function SettingsPage() {
         }
       }
       // Load app settings (for SUPER_ADMIN only)
-      if (userData?.role === 'SUPER_ADMIN') {
+      if (userData?.role === USER_ROLES.SUPER_ADMIN) {
         const appResponse = await fetch('/api/app-settings', {
           credentials: 'include',
         });
@@ -471,7 +471,7 @@ export default function SettingsPage() {
                           </button>
                         )}
                       </div>
-                      {userData?.role === 'USER' && (
+                      {userData?.role === USER_ROLES.USER && (
                         <p className="text-xs text-muted-foreground mt-1">
                         Contact your organization admin to change your email address
                         </p>
@@ -485,8 +485,8 @@ export default function SettingsPage() {
                         </label>
                         <input
                         type="text"
-                        value={userData.role === 'SUPER_ADMIN' ? 'Super Admin' : 
-                             userData.role === 'ORG_ADMIN' ? 'Organization Admin' : 'User'}
+                        value={userData.role === USER_ROLES.SUPER_ADMIN ? 'Super Admin' :
+                             userData.role === USER_ROLES.ORG_ADMIN ? 'Organization Admin' : 'User'}
                         disabled
                         className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-muted-foreground"
                         />
@@ -722,7 +722,7 @@ export default function SettingsPage() {
             </motion.div>
 
             {/* Info Card for Regular Users */}
-            {userData?.role === 'USER' && (
+            {userData?.role === USER_ROLES.USER && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -757,7 +757,7 @@ export default function SettingsPage() {
             )}
 
                      {/* Organization Settings - Only for Org Admins */}
-            {userData?.role === 'ORG_ADMIN' && (
+            {userData?.role === USER_ROLES.ORG_ADMIN && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -812,7 +812,7 @@ export default function SettingsPage() {
             )}
 
             {/* Alert Settings - For Org Admin and Super Admin */}
-            {(userData?.role === 'ORG_ADMIN' || userData?.role === 'SUPER_ADMIN') && (
+            {(userData?.role === USER_ROLES.ORG_ADMIN || userData?.role === USER_ROLES.SUPER_ADMIN) && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -907,7 +907,7 @@ export default function SettingsPage() {
             )}
 
             {/* Super Admin Only Settings */}
-            {userData?.role === 'SUPER_ADMIN' && (
+            {userData?.role === USER_ROLES.SUPER_ADMIN && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -965,7 +965,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Sidebar - Quick Actions & Danger Zone (Org Admin Only) */}
-          {userData?.role === 'ORG_ADMIN' && (
+          {userData?.role === USER_ROLES.ORG_ADMIN && (
             <div className="space-y-8">
               {/* Danger Zone */}
               <motion.div

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuth, checkOrganizationAccess, createAuditLog } from '@/lib/api-middleware';
 import { notifyIncidentUpdated, notifyIncidentResolved } from '@/lib/pusher-server';
-import { notifyTeamOfResolution } from '@/lib/resend';
+import { notifyTeamOfResolution } from '@/lib/notify';
 
 // GET /api/incidents/[id] - Get incident details
 export async function GET(request, { params }) {
@@ -80,19 +80,8 @@ export async function PUT(request, { params }) {
       return user;
     }
 
-    let id = params?.id;
-    // Fallback: extract id from URL if params is missing or Proxy
-    if (!id || typeof id !== 'string') {
-      const urlParts = request.url.split('/');
-      id = urlParts[urlParts.length - 1];
-      console.log('Fallback id from URL:', id);
-    }
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Incident ID is required' },
-        { status: 400 }
-      );
-    }
+    let {id} = await params;
+  
     const body = await request.json();
 
     // Get existing incident

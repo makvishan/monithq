@@ -7,6 +7,7 @@ import MainContent from '@/components/MainContent';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/Card';
 import { incidentsAPI } from '@/lib/api';
 import { formatDateTime, formatDuration, getStatusBadge } from '@/lib/utils';
+import { INCIDENT_SEVERITY, INCIDENT_SEVERITY_BG_CLASSES, INCIDENT_SEVERITY_DISPLAY_NAMES } from '@/lib/constants';
 import { AlertTriangle, CheckCircle, Clock, Loader2, AlertCircle } from 'lucide-react';
 import showToast from '@/lib/toast';
 
@@ -183,12 +184,8 @@ export default function IncidentsPage() {
                                   <span className="px-3 py-1 rounded text-sm font-medium capitalize bg-yellow-500/10 text-yellow-500">
                                     {incident.status.toLowerCase()}
                                   </span>
-                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                    incident.severity === 'HIGH' ? 'bg-red-500/10 text-red-500' :
-                                    incident.severity === 'MEDIUM' ? 'bg-orange-500/10 text-orange-500' :
-                                    'bg-yellow-500/10 text-yellow-500'
-                                  }`}>
-                                    {incident.severity.toLowerCase()} severity
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${INCIDENT_SEVERITY_BG_CLASSES[incident.severity] || INCIDENT_SEVERITY_BG_CLASSES[INCIDENT_SEVERITY.LOW]}`}>
+                                    {INCIDENT_SEVERITY_DISPLAY_NAMES[incident.severity]?.toLowerCase() || incident.severity.toLowerCase()} severity
                                   </span>
                                 </div>
                               </div>
@@ -278,12 +275,8 @@ export default function IncidentsPage() {
                                 </span>
                               </td>
                               <td className="px-6 py-4">
-                                <span className={`px-2 py-1 rounded text-xs font-medium capitalize ${
-                                  incident.severity === 'HIGH' ? 'bg-red-500/10 text-red-500' :
-                                  incident.severity === 'MEDIUM' ? 'bg-orange-500/10 text-orange-500' :
-                                  'bg-yellow-500/10 text-yellow-500'
-                                }`}>
-                                  {incident.severity.toLowerCase()}
+                                <span className={`px-2 py-1 rounded text-xs font-medium capitalize ${INCIDENT_SEVERITY_BG_CLASSES[incident.severity] || INCIDENT_SEVERITY_BG_CLASSES[INCIDENT_SEVERITY.LOW]}`}>
+                                  {INCIDENT_SEVERITY_DISPLAY_NAMES[incident.severity]?.toLowerCase() || incident.severity.toLowerCase()}
                                 </span>
                               </td>
                               <td className="px-6 py-4 max-w-md">

@@ -3,17 +3,31 @@ import prisma from '@/lib/prisma';
 import { requireAuth, checkOrganizationAccess } from '@/lib/api-middleware';
 import { notifySiteStatusChanged, notifyIncidentCreated } from '@/lib/pusher-server';
 import { notifyTeamOfIncident } from '@/lib/notify';
+import { SITE_STATUS, INCIDENT_STATUS, INCIDENT_SEVERITY, TIMEOUTS, PERFORMANCE_THRESHOLDS } from '@/lib/constants';
+import { checkApiEndpoint, formatApiCheckForDB, getSiteStatusFromApiCheck } from '@/lib/api-monitor';
 
-// Helper function to check a single site
+// Helper function to check a single site (WEB or API)
 const checkSite = async (site) => {
+  // If it's an API endpoint, use API monitoring
+  if (site.siteType === 'API') {
+    return checkApiSite(site);
+  }
+
+  // Otherwise, use standard website monitoring
+  return checkWebSite(site);
+};
+
+// Check a regular website
+const checkWebSite = async (site) => {
   const startTime = Date.now();
-  let status = 'ONLINE';
+  let status = SITE_STATUS.ONLINE;
   let latency = 0;
   let error = null;
+  let statusCode = null;
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const timeout = setTimeout(() => controller.abort(), TIMEOUTS.HEALTH_CHECK);
 
     const response = await fetch(site.url, {
       method: 'HEAD',
@@ -25,21 +39,47 @@ const checkSite = async (site) => {
 
     clearTimeout(timeout);
     latency = Date.now() - startTime;
+    statusCode = response.status;
 
     if (!response.ok) {
-      status = 'OFFLINE';
+      status = SITE_STATUS.OFFLINE;
       error = `HTTP ${response.status} ${response.statusText}`;
-    } else if (latency > 5000) {
-      status = 'DEGRADED';
+    } else if (latency > PERFORMANCE_THRESHOLDS.DEGRADED_LATENCY) {
+      status = SITE_STATUS.DEGRADED;
     }
   } catch (err) {
     console.error(`Error checking ${site.url}:`, err.message);
-    status = 'OFFLINE';
+    status = SITE_STATUS.OFFLINE;
     latency = Date.now() - startTime;
     error = err.message;
   }
 
-  return { status, latency, error };
+  return { status, latency, error, statusCode, apiCheckResult: null };
+};
+
+// Check an API endpoint
+const checkApiSite = async (site) => {
+  const apiConfig = {
+    url: site.url,
+    method: site.httpMethod,
+    headers: site.requestHeaders || {},
+    body: site.requestBody,
+    expectedStatus: site.expectedStatus || [200],
+    authType: site.authType,
+    authValue: site.authValue,
+    validation: site.responseValidation,
+  };
+
+  const apiCheckResult = await checkApiEndpoint(apiConfig);
+  const status = getSiteStatusFromApiCheck(apiCheckResult);
+
+  return {
+    status,
+    latency: apiCheckResult.responseTime,
+    error: apiCheckResult.errorMessage,
+    statusCode: apiCheckResult.statusCode,
+    apiCheckResult,
+  };
 };
 
 // POST /api/sites/[id]/check - Manually trigger site health check
@@ -78,7 +118,7 @@ export async function POST(request, { params }) {
     }
 
     // Perform health check
-    const { status, latency, error } = await checkSite(site);
+    const { status, latency, error, statusCode, apiCheckResult } = await checkSite(site);
     const previousStatus = site.status;
     const now = new Date();
 
@@ -155,22 +195,33 @@ export async function POST(request, { params }) {
         siteId: id,
         status,
         responseTime: latency,
-        statusCode: status === 'ONLINE' ? 200 : null,
+        statusCode: statusCode || (status === 'ONLINE' ? 200 : null),
         errorMessage: error,
         checkedAt: now,
       },
     });
 
+    // If this was an API check, also save API-specific data
+    if (site.siteType === 'API' && apiCheckResult) {
+      await prisma.apiCheck.create({
+        data: {
+          siteId: id,
+          ...formatApiCheckForDB(apiCheckResult),
+          checkedAt: now,
+        },
+      });
+    }
+
     // If status changed to OFFLINE or DEGRADED, create an incident
     if (
-      (status === 'OFFLINE' || status === 'DEGRADED') &&
-      previousStatus === 'ONLINE'
+      (status === SITE_STATUS.OFFLINE || status === SITE_STATUS.DEGRADED) &&
+      previousStatus === SITE_STATUS.ONLINE
     ) {
       const incident = await prisma.incident.create({
         data: {
           siteId: id,
-          status: 'INVESTIGATING',
-          severity: status === 'OFFLINE' ? 'HIGH' : 'MEDIUM',
+          status: INCIDENT_STATUS.INVESTIGATING,
+          severity: status === SITE_STATUS.OFFLINE ? INCIDENT_SEVERITY.HIGH : INCIDENT_SEVERITY.MEDIUM,
           startTime: now,
           aiSummary: `Manual check detected: ${site.name} is ${status.toLowerCase()}. Response time: ${latency}ms.${error ? ' Error: ' + error : ''}`,
         },
