@@ -257,6 +257,11 @@ export async function POST(request) {
           authValue: authValue || null,
           responseValidation: responseValidation || null,
         }),
+        // Monitoring toggles
+        multiRegionMonitoringEnabled: body.multiRegionMonitoringEnabled ?? true,
+        dnsMonitoringEnabled: body.dnsMonitoringEnabled ?? true,
+        securityMonitoringEnabled: body.securityMonitoringEnabled ?? true,
+        performanceMonitoringEnabled: body.performanceMonitoringEnabled ?? true,
       },
       include: {
         organization: {

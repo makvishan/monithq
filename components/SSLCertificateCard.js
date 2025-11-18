@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState,useEffect } from 'react';
 import { Shield, ShieldAlert, ShieldCheck, RefreshCw, Settings } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -8,6 +8,26 @@ export default function SSLCertificateCard({ site, onRefresh }) {
   const [loading, setLoading] = useState(false);
   const [sslInfo, setSSLInfo] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+
+  // Auto-load SSL info on mount
+  useEffect(() => {
+    if (site?.sslMonitoringEnabled && site?.url?.startsWith('https://')) {
+      (async () => {
+        setLoading(true);
+        try {
+          const response = await fetch(`/api/sites/${site.id}/ssl/check`, { method: 'POST' });
+          const data = await response.json();
+          if (data.success && data.isHttps) {
+            setSSLInfo(data.sslInfo);
+          }
+        } catch (error) {
+          // Silent fail on mount
+        } finally {
+          setLoading(false);
+        }
+      })();
+    }
+  }, [site?.id, site?.sslMonitoringEnabled, site?.url]);
 
   const handleCheckSSL = async () => {
     setLoading(true);
@@ -79,7 +99,7 @@ export default function SSLCertificateCard({ site, onRefresh }) {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
+    <div className="bg-white rounded-lg shadow p-6 border border-gray-200 mb-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-3">
           <SSLIcon className={`w-6 h-6 ${statusColor}`} />
@@ -89,10 +109,11 @@ export default function SSLCertificateCard({ site, onRefresh }) {
           <button
             onClick={handleCheckSSL}
             disabled={loading}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Check SSL Certificate"
           >
-            <RefreshCw className={`w-4 h-4 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Checking...' : 'Run Check'}
           </button>
           <button
             onClick={() => setShowSettings(!showSettings)}
@@ -164,9 +185,10 @@ export default function SSLCertificateCard({ site, onRefresh }) {
               <button
                 onClick={handleCheckSSL}
                 disabled={loading}
-                className="mt-3 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
+                className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-3"
               >
-                {loading ? 'Checking...' : 'Check SSL'}
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                {loading ? 'Checking...' : 'Run Check'}
               </button>
             </div>
           )}
@@ -194,7 +216,7 @@ export default function SSLCertificateCard({ site, onRefresh }) {
               </div>
             )}
             <p className="text-xs text-gray-500">
-              SSL certificates are checked daily. You'll be notified when the certificate is about to expire.
+              SSL certificates are checked daily. You&apos;ll be notified when the certificate is about to expire.
             </p>
           </div>
         </div>

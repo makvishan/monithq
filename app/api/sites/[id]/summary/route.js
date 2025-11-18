@@ -1,12 +1,12 @@
-import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { requireAuth, checkOrganizationAccess } from '@/lib/api-middleware';
+import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { requireAuth, checkOrganizationAccess } from "@/lib/api-middleware";
 
 // GET /api/sites/[id]/summary - Get site summary (card + basic stats)
 export async function GET(request, { params }) {
   try {
     const user = await requireAuth(request);
-    
+
     if (user instanceof NextResponse) {
       return user;
     }
@@ -30,6 +30,10 @@ export async function GET(request, { params }) {
         createdAt: true,
         // SSL Certificate fields
         sslMonitoringEnabled: true,
+        multiRegionMonitoringEnabled: true,
+        securityMonitoringEnabled: true,
+        dnsMonitoringEnabled: true,
+        performanceMonitoringEnabled: true,
         sslExpiryDate: true,
         sslIssuer: true,
         sslValidFrom: true,
@@ -46,7 +50,7 @@ export async function GET(request, { params }) {
         _count: {
           select: {
             incidents: {
-              where: { status: { not: 'RESOLVED' } },
+              where: { status: { not: "RESOLVED" } },
             },
             checks: true,
           },
@@ -55,25 +59,19 @@ export async function GET(request, { params }) {
     });
 
     if (!site) {
-      return NextResponse.json(
-        { error: 'Site not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Site not found" }, { status: 404 });
     }
 
     // Check access
     const hasAccess = await checkOrganizationAccess(user, site.organization.id);
     if (!hasAccess) {
-      return NextResponse.json(
-        { error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Get last check for status info
     const lastCheck = await prisma.siteCheck.findFirst({
       where: { siteId: id },
-      orderBy: { checkedAt: 'desc' },
+      orderBy: { checkedAt: "desc" },
       select: {
         status: true,
         responseTime: true,
@@ -92,14 +90,13 @@ export async function GET(request, { params }) {
         lastCheck,
       },
     });
-
   } catch (error) {
-    console.error('Error fetching site summary:', error);
+    console.error("Error fetching site summary:", error);
     return NextResponse.json(
-      { 
+      {
         success: false,
-        error: 'Failed to fetch site summary',
-        details: error.message 
+        error: "Failed to fetch site summary",
+        details: error.message,
       },
       { status: 500 }
     );

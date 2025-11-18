@@ -1,0 +1,39 @@
+{
+  "name": "monithq-infrastructure-agents",
+  "version": "1.0.0",
+  "description": "Infrastructure monitoring agents for MonitHQ - Collects server, Docker, Kubernetes, and database metrics",
+  "main": "send-query-metrics.js",
+  "scripts": {
+    "server": "node send-server-metrics.js",
+    "docker": "node send-docker-metrics.js",
+    "k8s": "node send-k8s-metrics.js",
+    "query": "node send-query-metrics.js",
+    "install-all": "npm install os-utils systeminformation dockerode @kubernetes/client-node dotenv",
+    "test-server": "node send-server-metrics.js",
+    "test-docker": "node send-docker-metrics.js",
+    "test-k8s": "node send-k8s-metrics.js",
+    "test-query": "node send-query-metrics.js"
+  },
+  "keywords": [
+    "monitoring",
+    "infrastructure",
+    "metrics",
+    "docker",
+    "kubernetes",
+    "server-monitoring",
+    "performance",
+    "devops"
+  ],
+  "author": "MonitHQ",
+  "license": "MIT",
+  "dependencies": {
+    "@kubernetes/client-node": "^0.20.0",
+    "dockerode": "^4.0.0",
+    "dotenv": "^16.3.1",
+    "os-utils": "^0.0.14",
+    "systeminformation": "^5.21.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

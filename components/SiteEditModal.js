@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Code, Globe, Activity } from 'lucide-react';
+import { X, Code, Globe, Activity, Eye, EyeOff } from 'lucide-react';
 import showToast from '@/lib/toast';
 import { SITE_TYPES, SITE_TYPE_DISPLAY_NAMES, HTTP_METHODS, AUTH_TYPES, AUTH_TYPE_DISPLAY_NAMES } from '@/lib/constants';
 
@@ -14,6 +14,10 @@ export default function SiteEditModal({ site, isOpen, onClose, onUpdate, mode = 
     region: 'US-EAST',
     sslMonitoringEnabled: true,
     sslAlertThreshold: 30,
+    multiRegionMonitoringEnabled: true,
+    dnsMonitoringEnabled: true,
+    securityMonitoringEnabled: true,
+    performanceMonitoringEnabled: true,
     // API Endpoint fields
     siteType: SITE_TYPES.WEB,
     httpMethod: HTTP_METHODS.GET,
@@ -26,6 +30,7 @@ export default function SiteEditModal({ site, isOpen, onClose, onUpdate, mode = 
   });
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
+  const [showAuthValue, setShowAuthValue] = useState(false);
 
   // Header management
   const [headerKey, setHeaderKey] = useState('');
@@ -40,6 +45,10 @@ export default function SiteEditModal({ site, isOpen, onClose, onUpdate, mode = 
         region: site.region || 'US-EAST',
         sslMonitoringEnabled: site.sslMonitoringEnabled ?? true,
         sslAlertThreshold: site.sslAlertThreshold || 30,
+        multiRegionMonitoringEnabled: site.multiRegionMonitoringEnabled ?? true,
+        dnsMonitoringEnabled: site.dnsMonitoringEnabled ?? true,
+        securityMonitoringEnabled: site.securityMonitoringEnabled ?? true,
+        performanceMonitoringEnabled: site.performanceMonitoringEnabled ?? true,
         siteType: site.siteType || SITE_TYPES.WEB,
         httpMethod: site.httpMethod || HTTP_METHODS.GET,
         requestHeaders: site.requestHeaders || {},
@@ -57,6 +66,10 @@ export default function SiteEditModal({ site, isOpen, onClose, onUpdate, mode = 
         region: 'US-EAST',
         sslMonitoringEnabled: true,
         sslAlertThreshold: 30,
+        multiRegionMonitoringEnabled: true,
+        dnsMonitoringEnabled: true,
+        securityMonitoringEnabled: true,
+        performanceMonitoringEnabled: true,
         siteType: SITE_TYPES.WEB,
         httpMethod: HTTP_METHODS.GET,
         requestHeaders: {},
@@ -342,18 +355,32 @@ export default function SiteEditModal({ site, isOpen, onClose, onUpdate, mode = 
                   </select>
 
                   {formData.authType !== AUTH_TYPES.NONE && (
-                    <input
-                      type="password"
-                      value={formData.authValue}
-                      onChange={(e) => setFormData({ ...formData, authValue: e.target.value })}
-                      className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder={
-                        formData.authType === AUTH_TYPES.BEARER ? 'Bearer token' :
-                        formData.authType === AUTH_TYPES.API_KEY ? 'API key' :
-                        'username:password (base64)'
-                      }
-                      disabled={submitting}
-                    />
+                    <div className="relative">
+                      <input
+                        type={showAuthValue ? "text" : "password"}
+                        value={formData.authValue}
+                        onChange={(e) => setFormData({ ...formData, authValue: e.target.value })}
+                        className="w-full px-4 pr-12 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder={
+                          formData.authType === AUTH_TYPES.BEARER ? 'Bearer token' :
+                          formData.authType === AUTH_TYPES.API_KEY ? 'API key' :
+                          'username:password (base64)'
+                        }
+                        disabled={submitting}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAuthValue(!showAuthValue)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showAuthValue ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -458,6 +485,79 @@ export default function SiteEditModal({ site, isOpen, onClose, onUpdate, mode = 
             )}
 
             {/* SSL Monitoring Section */}
+                      {/* Monitoring Toggles Section */}
+                      <div className="pt-6 border-t border-border">
+                        <div className="mb-4 grid grid-cols-2 gap-4">
+                          <label className="flex items-center justify-between cursor-pointer relative">
+                            <div>
+                              <span className="block text-sm font-medium text-foreground mb-1">Multi-Region Monitoring</span>
+                              <span className="block text-xs text-muted-foreground">Check site performance from multiple regions</span>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type="checkbox"
+                                checked={formData.multiRegionMonitoringEnabled}
+                                onChange={e => setFormData({ ...formData, multiRegionMonitoringEnabled: e.target.checked })}
+                                className="sr-only peer"
+                                disabled={submitting}
+                              />
+                              <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-primary peer-focus:ring-2 peer-focus:ring-primary transition-all"></div>
+                              <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                            </div>
+                          </label>
+                          <label className="flex items-center justify-between cursor-pointer relative">
+                            <div>
+                              <span className="block text-sm font-medium text-foreground mb-1">DNS Monitoring</span>
+                              <span className="block text-xs text-muted-foreground">Track DNS records and detect changes</span>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type="checkbox"
+                                checked={formData.dnsMonitoringEnabled}
+                                onChange={e => setFormData({ ...formData, dnsMonitoringEnabled: e.target.checked })}
+                                className="sr-only peer"
+                                disabled={submitting}
+                              />
+                              <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-primary peer-focus:ring-2 peer-focus:ring-primary transition-all"></div>
+                              <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                            </div>
+                          </label>
+                          <label className="flex items-center justify-between cursor-pointer relative">
+                            <div>
+                              <span className="block text-sm font-medium text-foreground mb-1">Security Monitoring</span>
+                              <span className="block text-xs text-muted-foreground">Scan for security headers and vulnerabilities</span>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type="checkbox"
+                                checked={formData.securityMonitoringEnabled}
+                                onChange={e => setFormData({ ...formData, securityMonitoringEnabled: e.target.checked })}
+                                className="sr-only peer"
+                                disabled={submitting}
+                              />
+                              <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-primary peer-focus:ring-2 peer-focus:ring-primary transition-all"></div>
+                              <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                            </div>
+                          </label>
+                          <label className="flex items-center justify-between cursor-pointer relative">
+                            <div>
+                              <span className="block text-sm font-medium text-foreground mb-1">Performance Monitoring</span>
+                              <span className="block text-xs text-muted-foreground">Track site response time and performance metrics</span>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type="checkbox"
+                                checked={formData.performanceMonitoringEnabled}
+                                onChange={e => setFormData({ ...formData, performanceMonitoringEnabled: e.target.checked })}
+                                className="sr-only peer"
+                                disabled={submitting}
+                              />
+                              <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-primary peer-focus:ring-2 peer-focus:ring-primary transition-all"></div>
+                              <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
             {!isApiEndpoint && formData.url && formData.url.startsWith('https://') && (
               <div className="pt-6 border-t border-border">
                 <div className="mb-4">

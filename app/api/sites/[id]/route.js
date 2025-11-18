@@ -157,6 +157,11 @@ export async function PUT(request, { params }) {
         ...(body.sslMonitoringEnabled !== undefined && { sslMonitoringEnabled: body.sslMonitoringEnabled }),
         ...(body.sslAlertThreshold !== undefined && { sslAlertThreshold: body.sslAlertThreshold }),
       }),
+      // Monitoring toggles
+      ...(body.multiRegionMonitoringEnabled !== undefined && { multiRegionMonitoringEnabled: body.multiRegionMonitoringEnabled }),
+      ...(body.dnsMonitoringEnabled !== undefined && { dnsMonitoringEnabled: body.dnsMonitoringEnabled }),
+      ...(body.securityMonitoringEnabled !== undefined && { securityMonitoringEnabled: body.securityMonitoringEnabled }),
+      ...(body.performanceMonitoringEnabled !== undefined && { performanceMonitoringEnabled: body.performanceMonitoringEnabled }),
     };
 
     // Update site

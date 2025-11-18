@@ -2,6 +2,7 @@
 
 import { Card, CardHeader, CardTitle, CardContent } from './Card';
 import { getStatusBadge, formatUptime, formatResponseTime, formatRelativeTime } from '@/lib/utils';
+import { SiteStatus } from '@prisma/client';
 import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
@@ -26,9 +27,9 @@ export default function SiteStatusCard({ site }) {
             </Link>
           </div>
           <span className={`px-2 py-1 rounded text-xs font-medium capitalize ${
-            site.status === 'online' ? 'bg-green-500/10 text-green-500' :
-            site.status === 'degraded' ? 'bg-yellow-500/10 text-yellow-500' :
-            site.status === 'maintenance' ? 'bg-blue-500/10 text-blue-500' :
+            site.status === SiteStatus.ONLINE ? 'bg-green-500/10 text-green-500' :
+            site.status === SiteStatus.DEGRADED ? 'bg-yellow-500/10 text-yellow-500' :
+            site.status === SiteStatus.MAINTENANCE ? 'bg-blue-500/10 text-blue-500' :
             'bg-red-500/10 text-red-500'
           }`}>
             {site.status}

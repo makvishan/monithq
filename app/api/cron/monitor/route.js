@@ -1,5 +1,14 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import {
+  checkFromMultipleRegions,
+  formatRegionCheckForDB,
+  calculateAverageResponseTime,
+  getFastestRegion,
+  getSlowestRegion,
+  getOverallStatus
+} from '@/lib/region-monitor';
+import { DEFAULT_REGIONS } from '@/lib/constants';
 import fetch from 'node-fetch';
 import { notifyIncidentCreated, notifySiteStatusChanged } from '@/lib/pusher-server';
 import { notifyTeamOfIncident, notifyTeamOfResolution, sendSSLExpiryNotification } from '@/lib/notify';
@@ -349,11 +358,79 @@ export async function POST(request) {
     console.log(`[Cron] Checking SSL for ${sitesToCheckSSL.length} sites`);
 
     const results = [];
+    // DNS Check: Run weekly for all sites
+    const dnsResults = [];
+    const now = new Date();
+    // Determine if today is the DNS check day (e.g., Sunday)
+    const today = new Date();
+    const isDnsCheckDay = today.getDay() === 0; // 0 = Sunday
+    if (isDnsCheckDay) {
+      console.log('[Cron] Running weekly DNS checks for all sites');
+      for (const site of sites) {
+        try {
+          // Get previous DNS check for comparison
+          const previousCheck = await prisma.dnsCheck.findFirst({
+            where: { siteId: site.id },
+            orderBy: { checkedAt: 'desc' },
+          });
+          // Run DNS check
+          const dnsCheckRaw = await import('@/lib/dns-monitor');
+          const dnsResultsRaw = await dnsCheckRaw.performDnsCheck(site.url);
+          const dnsCheckData = dnsCheckRaw.formatDnsCheckForDB(dnsResultsRaw, previousCheck);
+          // Save to DB
+          const dnsCheck = await prisma.dnsCheck.create({
+            data: {
+              siteId: site.id,
+              ...dnsCheckData,
+              checkedAt: now,
+            },
+          });
+          dnsResults.push({
+            site: site.name,
+            hostname: dnsCheck.hostname,
+            success: dnsCheck.success,
+            changesDetected: dnsCheck.changesDetected,
+            errorMessage: dnsCheck.errorMessage,
+            checkedAt: dnsCheck.checkedAt,
+          });
+          console.log(`[DNS Check] ${site.name}: ${dnsCheck.success ? 'Success' : 'Failed'}${dnsCheck.changesDetected ? ' (Changes detected)' : ''}`);
+        } catch (error) {
+          console.error(`[DNS Check] Error checking ${site.name}:`, error);
+          dnsResults.push({
+            site: site.name,
+            error: error.message,
+          });
+        }
+      }
+    }
 
     for (const site of sitesToCheck) {
       try {
         const { status, latency, error } = await checkSite(site);
         await updateSiteStatus(site, status, latency, error);
+
+        // Multi-region check (same as manual)
+        const regionResults = await checkFromMultipleRegions(site.url, DEFAULT_REGIONS);
+        const now = new Date();
+        const checkPromises = regionResults.map(result => {
+          if (!result.success) {
+            console.warn(`[Cron] Region check failed for ${site.name} (${result.region}):`, result.errorMessage);
+          }
+          return prisma.regionCheck.create({
+            data: {
+              siteId: site.id,
+              ...formatRegionCheckForDB(result),
+              checkedAt: now,
+            },
+          });
+        });
+        await Promise.all(checkPromises);
+
+        // Calculate statistics
+        const avgResponseTime = calculateAverageResponseTime(regionResults);
+        const fastestRegion = getFastestRegion(regionResults);
+        const slowestRegion = getSlowestRegion(regionResults);
+        const overallStatus = getOverallStatus(regionResults);
 
         results.push({
           site: site.name,
@@ -361,6 +438,14 @@ export async function POST(request) {
           latency,
           interval: site.checkInterval,
           error,
+          multiRegion: {
+            averageResponseTime: avgResponseTime,
+            fastestRegion,
+            slowestRegion,
+            overallStatus,
+            regionsChecked: regionResults.length,
+            successfulChecks: regionResults.filter(r => r.success).length,
+          }
         });
 
         console.log(`[Cron] ${site.name}: ${status} (${latency}ms) [interval: ${site.checkInterval}s]${error ? ' - ' + error : ''}`);
@@ -402,6 +487,7 @@ export async function POST(request) {
       sslChecked: sitesToCheckSSL.length,
       results,
       sslResults,
+      dnsResults,
     }, { status: 200 });
 
   } catch (error) {

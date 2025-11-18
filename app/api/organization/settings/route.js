@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuth } from '@/lib/api-middleware';
+import { USER_ROLES } from '@/lib/constants';
 
 // GET - Fetch organization alert settings (Org Admin and Super Admin)
 export async function GET(request) {
@@ -12,7 +13,7 @@ export async function GET(request) {
     }
 
     // Check if user is Admin or Super Admin
-    if (user.role !== 'ORG_ADMIN' && user.role !== 'SUPER_ADMIN') {
+    if (user.role !== USER_ROLES.ORG_ADMIN && user.role !== USER_ROLES.SUPER_ADMIN) {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
@@ -60,7 +61,7 @@ export async function PUT(request) {
     }
 
     // Check if user is Admin or Super Admin
-    if (user.role !== 'ORG_ADMIN' && user.role !== 'SUPER_ADMIN') {
+    if (user.role !== USER_ROLES.ORG_ADMIN && user.role !== USER_ROLES.SUPER_ADMIN) {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
@@ -79,11 +80,11 @@ export async function PUT(request) {
     }
 
     const body = await request.json();
-    const { alertThreshold, alertCooldownMinutes, maintenanceMode } = body;
+    const { alertThreshold, alertCooldownMinutes, maintenanceMode, name, logo } = body;
 
     // Validate inputs
     const updates = {};
-    
+
     if (alertThreshold !== undefined) {
       if (typeof alertThreshold !== 'number' || alertThreshold < 1 || alertThreshold > 10) {
         return NextResponse.json(
@@ -112,6 +113,26 @@ export async function PUT(request) {
         );
       }
       updates.maintenanceMode = maintenanceMode;
+    }
+
+    if (name !== undefined) {
+      if (typeof name !== 'string' || name.length < 2) {
+        return NextResponse.json(
+          { error: 'Organization name must be a string with at least 2 characters' },
+          { status: 400 }
+        );
+      }
+      updates.name = name;
+    }
+
+    if (logo !== undefined) {
+      if (logo && typeof logo !== 'string') {
+        return NextResponse.json(
+          { error: 'Logo must be a string (S3 URL)' },
+          { status: 400 }
+        );
+      }
+      updates.logo = logo;
     }
 
     // Update organization

@@ -156,6 +156,7 @@ model User {
   webhooks      Webhook[]
   siteSubscriptions SiteSubscription[]
   passwordResets PasswordReset[]
+  apiTokens     ApiToken[]
 
   @@index([email])
   @@index([organizationId])
@@ -199,6 +200,12 @@ model Site {
   sslCertificateValid  Boolean   @default(true) // Current validity status
   sslAlertThreshold    Int       @default(30) // Days before expiry to alert
 
+  // Monitoring Toggles
+  multiRegionMonitoringEnabled Boolean @default(true)
+  dnsMonitoringEnabled Boolean @default(true)
+  securityMonitoringEnabled Boolean @default(true)
+  performanceMonitoringEnabled Boolean @default(true)
+
   // Security Headers Monitoring (Current State)
   securityScore         Int?      // Latest security score (0-100)
   lastSecurityCheck     DateTime? // Last security check timestamp
@@ -231,6 +238,13 @@ model Site {
   notifications  Notification[]
   subscribers    SiteSubscription[]
   aiInsights     AiInsight[]
+
+  // Infrastructure Monitoring
+  serverMetrics  ServerMetrics[] // Server resource monitoring
+  containerHealth ContainerHealth[] // Docker container health
+  clusterMetrics ClusterMetrics[] // Kubernetes cluster monitoring
+  queryPerformance QueryPerformance[] // Database query performance
+  apiTokens      ApiToken[] // API tokens for infrastructure monitoring
 
   @@index([organizationId])
   @@index([status])
@@ -694,4 +708,276 @@ model PerformanceCheck {
   @@index([checkedAt])
   @@index([performanceScore])
   @@index([grade])
+}
+
+/**
+ * Infrastructure Monitoring - Server Metrics
+ *
+ * Tracks server resource utilization:
+ * - CPU usage and load
+ * - RAM usage
+ * - Disk usage
+ */
+model ServerMetrics {
+  id              String   @id @default(cuid())
+  siteId          String
+  site            Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  // CPU Metrics
+  cpuUsagePercent Float    // Current CPU usage percentage (0-100)
+  cpuLoadAverage  Float?   // CPU load average (1 minute)
+  cpuCoreCount    Int?     // Number of CPU cores
+
+  // RAM Metrics
+  ramUsedMB       Int      // RAM used in MB
+  ramTotalMB      Int      // Total RAM in MB
+  ramUsagePercent Float    // RAM usage percentage (0-100)
+
+  // Disk Metrics
+  diskUsedGB      Float    // Disk used in GB
+  diskTotalGB     Float    // Total disk space in GB
+  diskUsagePercent Float   // Disk usage percentage (0-100)
+
+  // Thresholds & Alerts
+  cpuThreshold    Float    @default(80.0)  // Alert if CPU > threshold
+  ramThreshold    Float    @default(85.0)  // Alert if RAM > threshold
+  diskThreshold   Float    @default(90.0)  // Alert if Disk > threshold
+
+  // Server Info
+  hostname        String?  // Server hostname
+  osType          String?  // Operating system (linux, windows, etc.)
+  osVersion       String?  // OS version
+
+  // Status
+  healthy         Boolean  @default(true)
+  issues          Json?    // Array of detected issues
+  errorMessage    String?
+
+  checkedAt       DateTime @default(now())
+
+  @@index([siteId])
+  @@index([checkedAt])
+  @@index([healthy])
+  @@index([cpuUsagePercent])
+  @@index([ramUsagePercent])
+  @@index([diskUsagePercent])
+}
+
+/**
+ * Infrastructure Monitoring - Container Health
+ *
+ * Tracks Docker container status and health:
+ * - Container running status
+ * - Resource usage per container
+ * - Restart counts
+ */
+model ContainerHealth {
+  id              String   @id @default(cuid())
+  siteId          String
+  site            Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  // Container Info
+  containerId     String   // Docker container ID
+  containerName   String   // Container name
+  imageName       String   // Docker image name
+  imageTag        String?  // Image tag/version
+
+  // Container Status
+  status          String   // running, stopped, paused, restarting, dead
+  state           String?  // Additional state info
+  exitCode        Int?     // Exit code if stopped
+
+  // Health Check
+  healthStatus    String?  // healthy, unhealthy, starting, none
+  healthChecks    Json?    // Array of health check results
+
+  // Resource Usage
+  cpuUsagePercent Float?   // CPU usage percentage
+  memoryUsedMB    Int?     // Memory used in MB
+  memoryLimitMB   Int?     // Memory limit in MB
+  networkRxMB     Float?   // Network received in MB
+  networkTxMB     Float?   // Network transmitted in MB
+
+  // Runtime Info
+  uptime          Int?     // Container uptime in seconds
+  restartCount    Int      @default(0) // Number of restarts
+  createdAt       DateTime? // Container creation time
+  startedAt       DateTime? // Container start time
+
+  // Alerts
+  alertOnUnhealthy Boolean @default(true)
+  alertOnRestart   Boolean @default(true)
+
+  // Status
+  healthy         Boolean  @default(true)
+  issues          Json?    // Array of detected issues
+  errorMessage    String?
+
+  checkedAt       DateTime @default(now())
+
+  @@index([siteId])
+  @@index([containerId])
+  @@index([containerName])
+  @@index([status])
+  @@index([healthStatus])
+  @@index([checkedAt])
+  @@index([healthy])
+}
+
+/**
+ * Infrastructure Monitoring - Cluster Metrics
+ *
+ * Tracks Kubernetes cluster health and metrics:
+ * - Node status
+ * - Pod health
+ * - Resource utilization
+ */
+model ClusterMetrics {
+  id              String   @id @default(cuid())
+  siteId          String
+  site            Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  // Cluster Info
+  clusterName     String   // Kubernetes cluster name
+  namespace       String?  // Namespace being monitored
+
+  // Node Metrics
+  nodeCount       Int      // Total number of nodes
+  nodesReady      Int      // Number of ready nodes
+  nodesNotReady   Int      @default(0) // Number of not ready nodes
+
+  // Pod Metrics
+  podCount        Int      // Total number of pods
+  podsRunning     Int      // Number of running pods
+  podsPending     Int      @default(0) // Number of pending pods
+  podsFailed      Int      @default(0) // Number of failed pods
+
+  // Resource Utilization
+  cpuRequestPercent Float? // CPU requests as % of allocatable
+  cpuLimitPercent   Float? // CPU limits as % of allocatable
+  memRequestPercent Float? // Memory requests as % of allocatable
+  memLimitPercent   Float? // Memory limits as % of allocatable
+
+  // Cluster Health
+  healthStatus    String   @default("healthy") // healthy, degraded, critical
+  componentStatus Json?    // Status of cluster components (etcd, scheduler, etc.)
+
+  // Additional Metrics
+  deploymentCount Int?     // Number of deployments
+  serviceCount    Int?     // Number of services
+  ingressCount    Int?     // Number of ingresses
+  pvcCount        Int?     // Number of persistent volume claims
+
+  // Cluster Events
+  warningEvents   Json?    // Recent warning events
+  errorEvents     Json?    // Recent error events
+
+  // Thresholds
+  nodeReadyThreshold Float @default(80.0) // Alert if < % nodes ready
+  podRunningThreshold Float @default(90.0) // Alert if < % pods running
+
+  // Status
+  healthy         Boolean  @default(true)
+  issues          Json?    // Array of detected issues
+  errorMessage    String?
+
+  checkedAt       DateTime @default(now())
+
+  @@index([siteId])
+  @@index([clusterName])
+  @@index([namespace])
+  @@index([healthStatus])
+  @@index([checkedAt])
+  @@index([healthy])
+}
+
+/**
+ * Infrastructure Monitoring - Query Performance
+ *
+ * Tracks database query performance:
+ * - Slow query detection
+ * - Execution times
+ * - Query patterns
+ */
+model QueryPerformance {
+  id              String   @id @default(cuid())
+  siteId          String
+  site            Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  // Database Info
+  databaseType    String   // postgres, mysql, mongodb, redis, etc.
+  databaseName    String?  // Database name
+  databaseHost    String?  // Database host (anonymized if needed)
+
+  // Query Info
+  queryHash       String   // Hash of the query for grouping
+  queryText       String?  @db.Text // Actual query (truncated/sanitized)
+  queryType       String?  // SELECT, INSERT, UPDATE, DELETE, etc.
+
+  // Performance Metrics
+  executionTimeMs Float    // Query execution time in milliseconds
+  rowsAffected    Int?     // Number of rows returned/affected
+  rowsExamined    Int?     // Number of rows examined (for optimization)
+
+  // Query Analysis
+  isSlowQuery     Boolean  @default(false) // Flagged as slow query
+  slowQueryThreshold Float @default(1000.0) // Threshold in ms
+  useIndex        Boolean? // Whether query used an index
+  explainPlan     Json?    // Query execution plan
+
+  // Query Context
+  endpoint        String?  // API endpoint that triggered query
+  userId          String?  // User who triggered query (anonymized)
+  queryCount      Int      @default(1) // Number of times query executed
+
+  // Performance Score
+  performanceScore Int?    // Query performance score (0-100)
+  optimizationTips Json?   // Array of optimization suggestions
+
+  // Aggregated Stats (for grouped queries)
+  avgExecutionMs  Float?   // Average execution time
+  maxExecutionMs  Float?   // Maximum execution time
+  minExecutionMs  Float?   // Minimum execution time
+  p95ExecutionMs  Float?   // 95th percentile execution time
+  p99ExecutionMs  Float?   // 99th percentile execution time
+
+  // Status
+  healthy         Boolean  @default(true)
+  issues          Json?    // Array of detected issues
+  errorMessage    String?
+
+  checkedAt       DateTime @default(now())
+
+  @@index([siteId])
+  @@index([databaseType])
+  @@index([queryHash])
+  @@index([isSlowQuery])
+  @@index([executionTimeMs])
+  @@index([checkedAt])
+  @@index([healthy])
+}
+
+// API Tokens for Infrastructure Monitoring
+model ApiToken {
+  id          String    @id @default(cuid())
+  name        String    // Human-readable name for the token
+  token       String    @unique // The actual API token
+
+  // Relationships
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  siteId      String?   // Optional: token specific to a site
+  site        Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  // Token lifecycle
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime? // Track when token was last used
+  expiresAt   DateTime? // Optional expiration date
+  revokedAt   DateTime? // Soft delete - when token was revoked
+
+  @@index([token])
+  @@index([userId])
+  @@index([siteId])
+  @@index([revokedAt])
 }

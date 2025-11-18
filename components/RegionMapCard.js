@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Globe, RefreshCw, CheckCircle2, XCircle, AlertCircle, Clock } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from './Card';
 import { REGIONS, REGION_INFO, DEFAULT_REGIONS } from '@/lib/constants';
+import WorldMap from './WorldMap';
 
 export default function RegionMapCard({ siteId, initialResults = null }) {
   const [loading, setLoading] = useState(false);
@@ -13,6 +14,11 @@ export default function RegionMapCard({ siteId, initialResults = null }) {
   const [selectedRegions, setSelectedRegions] = useState(DEFAULT_REGIONS);
   const [expandedRegion, setExpandedRegion] = useState(null);
 
+    useEffect(() => {
+      runRegionalCheck();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [siteId, selectedRegions]);
+    
   // Run check
   const runRegionalCheck = async () => {
     setLoading(true);
@@ -156,6 +162,19 @@ export default function RegionMapCard({ siteId, initialResults = null }) {
             </div>
           </div>
         )}
+
+        {/* World Map Visualization */}
+        {/* {results && results.length > 0 && (
+          <div className="mb-6">
+            <WorldMap
+              results={results}
+              onRegionHover={(regionKey) => {
+                // Optional: sync hover state with expanded region
+                // setExpandedRegion(regionKey);
+              }}
+            />
+          </div>
+        )} */}
 
         {/* Region Selection */}
         <div className="mb-4">

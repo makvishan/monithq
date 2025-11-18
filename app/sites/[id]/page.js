@@ -29,8 +29,13 @@ import SecurityScoreCard from '@/components/SecurityScoreCard';
 import RegionMapCard from '@/components/RegionMapCard';
 import DnsMonitorCard from '@/components/DnsMonitorCard';
 import PerformanceMonitorCard from '@/components/PerformanceMonitorCard';
+import ServerMetricsCard from '@/components/ServerMetricsCard';
+import ContainerHealthCard from '@/components/ContainerHealthCard';
+import ClusterMetricsCard from '@/components/ClusterMetricsCard';
+import QueryPerformanceCard from '@/components/QueryPerformanceCard';
+import InfrastructureSetup from '@/components/InfrastructureSetup';
 import { useSnackbar } from '@/components/ui/SnackbarProvider';
-import { INCIDENT_SEVERITY, INCIDENT_SEVERITY_BG_CLASSES, INCIDENT_STATUS } from '@/lib/constants';
+import { INCIDENT_SEVERITY, INCIDENT_SEVERITY_BG_CLASSES, INCIDENT_STATUS, SITE_STATUS } from '@/lib/constants';
 import {
   ArrowLeft,
   ExternalLink,
@@ -49,8 +54,10 @@ import {
   Settings,
   BarChart3,
   Shield,
-  X
+  X,
+  Server
 } from 'lucide-react';
+import { SiteStatus } from '@prisma/client';
 
 export default function SiteDetailPage() {
   const params = useParams();
@@ -85,7 +92,7 @@ export default function SiteDetailPage() {
       const data = await response.json();
       if (response.ok && data.site) {
         setSummary(data.site);
-        setSite({ id: data.site.id, name: data.site.name, url: data.site.url, status: data.site.status });
+        setSite(data.site);
       } else {
         showSnackbar(data.error || 'Failed to load site summary', 'error');
         if (response.status === 404) router.push('/sites');
@@ -382,6 +389,7 @@ export default function SiteDetailPage() {
             {[
               { id: 'overview', label: 'Overview', icon: Activity },
               { id: 'monitoring', label: 'Advanced Monitoring', icon: Shield },
+              { id: 'infrastructure', label: 'Infrastructure', icon: Server },
               { id: 'analytics', label: 'Analytics', icon: BarChart3 },
               { id: 'history', label: 'History & Incidents', icon: Clock },
             ].map((tab) => {
@@ -506,15 +514,15 @@ export default function SiteDetailPage() {
                 {/* Main Status */}
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                   <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                    summary?.lastCheck?.status === 'up'
+                    summary?.lastCheck?.status === SITE_STATUS.ONLINE
                       ? 'bg-green-100 text-green-600'
-                      : summary?.lastCheck?.status === 'down'
+                      : summary?.lastCheck?.status === SITE_STATUS.OFFLINE
                       ? 'bg-red-100 text-red-600'
                       : 'bg-yellow-100 text-yellow-600'
                   }`}>
-                    {summary?.lastCheck?.status === 'up' ? (
+                    {summary?.lastCheck?.status === SITE_STATUS.ONLINE ? (
                       <CheckCircle className="w-6 h-6" />
-                    ) : summary?.lastCheck?.status === 'down' ? (
+                    ) : summary?.lastCheck?.status === SITE_STATUS.OFFLINE ? (
                       <XCircle className="w-6 h-6" />
                     ) : (
                       <AlertTriangle className="w-6 h-6" />
@@ -523,7 +531,7 @@ export default function SiteDetailPage() {
                   <div>
                     <p className="text-xs text-muted-foreground">Site Status</p>
                     <p className="font-semibold text-sm capitalize">
-                      {summary?.lastCheck?.status || 'Unknown'}
+                      {summary?.lastCheck?.status || SITE_STATUS.UNKNOWN}
                     </p>
                   </div>
                 </div>
@@ -627,9 +635,9 @@ export default function SiteDetailPage() {
                       className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
                     >
                       <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                        check.status === 'up'
+                        check.status === SiteStatus.ONLINE
                           ? 'bg-green-500'
-                          : check.status === 'down'
+                          : check.status === SiteStatus.OFFLINE
                           ? 'bg-red-500'
                           : 'bg-yellow-500'
                       }`} />
@@ -703,9 +711,9 @@ export default function SiteDetailPage() {
                               {incident.severity}
                             </span>
                             <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              incident.status === 'resolved'
+                              incident.status === INCIDENT_STATUS.RESOLVED
                                 ? 'bg-green-100 text-green-800'
-                                : incident.status === 'acknowledged'
+                                : incident.status === INCIDENT_STATUS.ACKNOWLEDGED
                                 ? 'bg-blue-100 text-blue-800'
                                 : 'bg-red-100 text-red-800'
                             }`}>
@@ -716,12 +724,12 @@ export default function SiteDetailPage() {
                             {incident.title || 'Site Down'}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {incident.description || 'No description available'}
+                            {incident.aiSummary || 'No description available'}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>Started: {new Date(incident.startedAt).toLocaleString()}</span>
+                        <span>Started: {new Date(incident.startTime).toLocaleString()}</span>
                         {incident.resolvedAt && (
                           <span>Resolved: {new Date(incident.resolvedAt).toLocaleString()}</span>
                         )}
@@ -771,82 +779,128 @@ export default function SiteDetailPage() {
         {activeTab === 'monitoring' && (
           <>
             {/* SSL Certificate Card & Security Score */}
-            {site && site.url && site.url.startsWith('https://') && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.4 }}
-            >
-              <SSLCertificateCard
-                site={{
-                  ...site,
-                  ...summary
-                }}
-                onRefresh={fetchAllData}
-              />
-            </motion.div>
+            {site && site.sslMonitoringEnabled && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.4 }}
+                >
+                  <SSLCertificateCard
+                    site={{
+                      ...site,
+                      ...summary
+                    }}
+                    onRefresh={fetchAllData}
+                  />
+                </motion.div>
+            )}
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.45 }}
-            >
-              <SecurityScoreCard
-                siteId={site.id}
-                initialScore={summary?.securityScore}
-                initialGrade={summary?.securityGrade}
-                lastChecked={summary?.lastSecurityCheck}
-              />
-            </motion.div>
-          </div>
-        )}
+            {/* Security Score for non-HTTPS sites */}
+            {site && site.securityMonitoringEnabled && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.4 }}
+                className="mb-8"
+              >
+                <SecurityScoreCard
+                  siteId={site.id}
+                  initialScore={summary?.securityScore}
+                  initialGrade={summary?.securityGrade}
+                  lastChecked={summary?.lastSecurityCheck}
+                />
+              </motion.div>
+            )}
 
-        {/* Security Score for non-HTTPS sites */}
-        {site && site.url && !site.url.startsWith('https://') && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.4 }}
-            className="mb-8"
-          >
-            <SecurityScoreCard
-              siteId={site.id}
-              initialScore={summary?.securityScore}
-              initialGrade={summary?.securityGrade}
-              lastChecked={summary?.lastSecurityCheck}
-            />
-          </motion.div>
-        )}
+            {/* Multi-Region Monitoring */}
+            {site?.multiRegionMonitoringEnabled && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.5 }}
+                className="mb-8"
+              >
+                <RegionMapCard siteId={site?.id} />
+              </motion.div>
+            )}
 
-        {/* Multi-Region Monitoring */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.5 }}
-          className="mb-8"
-        >
-          <RegionMapCard siteId={site?.id} />
-        </motion.div>
-
-        {/* DNS Monitoring */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.55 }}
-          className="mb-8"
-        >
-          <DnsMonitorCard siteId={site?.id} />
-        </motion.div>
+            {/* DNS Monitoring */}
+            {site?.dnsMonitoringEnabled && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.55 }}
+                className="mb-8"
+              >
+                <DnsMonitorCard siteId={site?.id} />
+              </motion.div>
+            )}
 
             {/* Performance Monitoring */}
+            {site?.performanceMonitoringEnabled && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="mb-8"
+              >
+                <PerformanceMonitorCard siteId={site?.id} />
+              </motion.div>
+            )}
+          </>
+        )}
+
+        {/* Infrastructure Tab */}
+        {activeTab === 'infrastructure' && (
+          <>
+            {/* Infrastructure Setup */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
               className="mb-8"
             >
-              <PerformanceMonitorCard siteId={site?.id} />
+              <InfrastructureSetup siteId={site?.id} />
+            </motion.div>
+
+            {/* Server Metrics */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.4 }}
+              className="mb-8"
+            >
+              <ServerMetricsCard siteId={site?.id} />
+            </motion.div>
+
+            {/* Container Health */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.5 }}
+              className="mb-8"
+            >
+              <ContainerHealthCard siteId={site?.id} />
+            </motion.div>
+
+            {/* Cluster Metrics */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.6 }}
+              className="mb-8"
+            >
+              <ClusterMetricsCard siteId={site?.id} />
+            </motion.div>
+
+            {/* Query Performance */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.7 }}
+              className="mb-8"
+            >
+              <QueryPerformanceCard siteId={site?.id} />
             </motion.div>
           </>
         )}
