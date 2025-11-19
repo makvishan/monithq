@@ -1,4 +1,5 @@
 
+
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
@@ -980,4 +981,10 @@ model ApiToken {
   @@index([userId])
   @@index([siteId])
   @@index([revokedAt])
+}
+
+model Contact {
+  id        Int      @id @default(autoincrement())
+  email     String
+  createdAt DateTime @default(now())
 }

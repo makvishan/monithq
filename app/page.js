@@ -4,9 +4,42 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import * as LucideIcons from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import ContactForm from '@/components/ContactForm';
 import { Card } from '@/components/Card';
-import { FEATURES, PRICING_PLANS, TESTIMONIALS, FOOTER_LINKS } from '@/lib/constants';
+import { FEATURES, TESTIMONIALS,PRICING_PLANS, FOOTER_LINKS } from '@/lib/constants';
 import { ArrowRight, Check, Star } from 'lucide-react';
+
+import { useEffect, useState } from 'react';
+function CookieConsentBanner() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const consent = localStorage.getItem('cookieConsent');
+      setVisible(!consent);
+    }
+  }, []);
+
+  const acceptCookies = () => {
+    localStorage.setItem('cookieConsent', 'accepted');
+    setVisible(false);
+  };
+
+  if (!visible) return null;
+  return (
+    <div className="fixed bottom-0 left-0 w-full bg-card border-t border-border shadow-lg z-50 p-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-fade-in">
+      <span className="text-sm text-muted-foreground">
+        We use cookies to improve your experience. By using MonitHQ, you accept our <a href="/privacy" className="underline text-primary">Privacy Policy</a>.
+      </span>
+      <button
+        onClick={acceptCookies}
+        className="px-4 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 transition-all"
+      >
+        Accept
+      </button>
+    </div>
+  );
+}
 
 export default function Home() {
   const fadeInUp = {
@@ -15,10 +48,32 @@ export default function Home() {
     transition: { duration: 0.5 },
   };
 
+  const [plans, setPlans] = useState([]);
+  const [loadingPlans, setLoadingPlans] = useState(true);
+  const [plansError, setPlansError] = useState(null);
+
+  useEffect(() => {
+    async function fetchPlans() {
+      setLoadingPlans(true);
+      setPlansError(null);
+      try {
+        const res = await fetch('/api/plans?active=true');
+        if (!res.ok) throw new Error('Failed to fetch plans');
+        const data = await res.json();
+        setPlans(data.plans || []);
+      } catch (err) {
+        setPlansError(err.message);
+      } finally {
+        setLoadingPlans(false);
+      }
+    }
+    fetchPlans();
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-
+      <CookieConsentBanner />
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
@@ -201,7 +256,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Pricing Section */}
+       {/* Pricing Section */}
       <section id="pricing" className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
         <div className="max-w-7xl mx-auto">
           <motion.div
@@ -219,8 +274,8 @@ export default function Home() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {PRICING_PLANS.map((plan, index) => (
+          <div className="grid md:grid-cols-4 gap-8 max-w-6xl mx-auto">
+            {plans.map((plan, index) => (
               <motion.div
                 key={plan.name}
                 initial={{ opacity: 0, y: 20 }}
@@ -228,8 +283,8 @@ export default function Home() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
               >
-                <Card hover className={`h-full relative ${plan.popular ? 'gradient-border shadow-lg glow-primary' : ''}`}>
-                  {plan.popular && (
+                <Card hover className={`h-full relative ${plan.isPopular ? 'gradient-border shadow-lg glow-primary' : ''}`}>
+                  {plan.isPopular && (
                     <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                       <span className="px-4 py-1 gradient-ai text-white text-sm font-semibold rounded-full glow-primary">
                         Most Popular
@@ -237,11 +292,11 @@ export default function Home() {
                     </div>
                   )}
                   <div className="text-center mb-6">
-                    <h3 className="text-2xl font-bold text-foreground mb-2">{plan.name}</h3>
+                    <h3 className="text-2xl font-bold text-foreground mb-2">{plan.displayName}</h3>
                     <div className="mb-2">
                       <span className="text-4xl font-bold text-foreground">{plan.price}</span>
                       {plan.period !== 'contact sales' && (
-                        <span className="text-muted-foreground"> / {plan.period}</span>
+                        <span className="text-muted-foreground"> / {plan.period || 'per month'}</span>
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground">{plan.description}</p>
@@ -257,12 +312,12 @@ export default function Home() {
                   <Link
                     href="/auth/register"
                     className={`block w-full py-3 rounded-lg text-center font-semibold transition-all ${
-                      plan.popular
+                      plan.isPopular
                         ? 'gradient-ai text-white glow-primary hover:opacity-90'
                         : 'border border-border hover:bg-muted'
                     }`}
                   >
-                    {plan.cta}
+                    {plan.cta || 'Get Started'}
                   </Link>
                 </Card>
               </motion.div>
@@ -270,6 +325,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+
 
       {/* Testimonials */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
@@ -345,6 +401,14 @@ export default function Home() {
               <ArrowRight className="w-5 h-5" />
             </Link>
           </motion.div>
+        </div>
+      </section>
+      {/* Contact Us Section */}
+      <section id="contact"  className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
+        <div className="max-w-2xl mx-auto text-center">
+          <h2 className="text-3xl font-bold text-foreground mb-4">Contact Us</h2>
+          <p className="text-lg text-muted-foreground mb-8">Have questions or need support? Enter your email and we'll get back to you.</p>
+          <ContactForm />
         </div>
       </section>
 
